@@ -10,6 +10,8 @@ from sqlalchemy.engine import Engine
 from blueprints.auth import bp as auth_bp
 from blueprints.canchas import bp as canchas_bp
 from blueprints.disponibilidad import bp as disponibilidad_bp
+from blueprints.pagos import bp as pagos_bp
+from blueprints.reservas import bp as reservas_bp
 from config import Config
 from errors import error_response, registrar_handlers
 from extensions import cors, db, jwt
@@ -41,6 +43,8 @@ def create_app(config_object=Config):
     app.register_blueprint(auth_bp, url_prefix="/api")
     app.register_blueprint(canchas_bp, url_prefix="/api")
     app.register_blueprint(disponibilidad_bp, url_prefix="/api")
+    app.register_blueprint(reservas_bp, url_prefix="/api")
+    app.register_blueprint(pagos_bp, url_prefix="/api")
 
     return app
 
