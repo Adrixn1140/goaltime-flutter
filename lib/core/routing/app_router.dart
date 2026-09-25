@@ -7,24 +7,35 @@ import '../../features/cliente/presentation/canchas_screen.dart';
 import '../../features/cliente/presentation/cliente_shell.dart';
 import '../../features/cliente/presentation/mis_reservas_screen.dart';
 import '../../features/cliente/presentation/perfil_screen.dart';
+import '../../features/cliente/presentation/reserva_screen.dart';
 import '../../features/gestion/presentation/dueno_shell.dart';
 import '../../features/gestion/presentation/gestion_canchas_screen.dart';
 import '../../features/usuarios/presentation/admin_shell.dart';
 import '../../features/usuarios/presentation/usuarios_screen.dart';
+import 'splash_screen.dart';
 
 /// Proveedor del [GoRouter] de la app. Los redirects dependen del rol.
+///
+/// `App` llama a `router.refresh()` cuando cambia la sesión (ver `app.dart`): sin eso,
+/// iniciar sesión dentro de la pantalla de login dejaría al usuario ahí, con el
+/// formulario ya enviado.
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/',
     redirect: (context, state) {
       final auth = ref.read(authProvider);
       final path = state.matchedLocation;
+
+      // Mientras se lee el almacenamiento seguro no se sabe todavía si hay sesión. Mandar
+      // a /login en ese instante sacaría al usuario de la app y lo haría volver a entrar
+      // en cada arranque: se espera en la pantalla de bienvenida (HEUR-1).
+      if (auth.restaurando) return path == '/' ? null : '/';
 
       if (!auth.isAuthenticated) {
         return path == '/login' ? null : '/login';
       }
 
-      if (path == '/login') {
+      if (path == '/' || path == '/login') {
         return _homeFor(auth.role);
       }
 
@@ -42,6 +53,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
@@ -52,6 +64,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/cliente/canchas',
             builder: (context, state) => const CanchasScreen(),
+          ),
+          GoRoute(
+            path: '/cliente/canchas/:id/reserva',
+            builder: (context, state) =>
+                PantallaReserva(canchaId: int.parse(state.pathParameters['id']!)),
           ),
           GoRoute(
             path: '/cliente/mis-reservas',
