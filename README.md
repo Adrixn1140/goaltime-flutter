@@ -1,51 +1,120 @@
-# GoalTime — App Flutter (Android/iOS)
+# GoalTime
 
-Sistema de **reservas de canchas sintéticas** (Riohacha, Colombia).
-App móvil Flutter que consume la **API Flask** existente. Proyecto de asignatura de
-**desarrollo móvil**.
+Sistema de **reservas de canchas sintéticas** (Riohacha, Colombia). Proyecto de
+asignatura de desarrollo móvil: app **Flutter (Android/iOS)** + **API REST propia**
+construida con **Flask + SQLAlchemy** en este mismo repositorio.
 
 **Multi-rol**: `Cliente` (reservar), `Dueño` (gestiona sus canchas) y `Admin` (gestión global).
+
+## Trazabilidad
+
+La v0 de la spec apuntaba a una API ya existente (`goaltime-app.onrender.com`). Al
+implementar se verificó que **ese backend no es recuperable**: el repositorio asociado
+era una app React + Firebase, sin `api.py` ni despliegue configurado, y el servicio de
+Render respondía HTTP 503. No hay código que migrar: el backend se construye desde cero
+en [`backend/`](backend/) siguiendo [`docs/spec.md`](docs/spec.md), que pasa a ser el
+contrato de construcción (no de migración).
 
 ## Stack
 
 | Capa | Tecnología |
 |---|---|
-| App | Flutter (Android/iOS) — Material 3 |
+| App | Flutter 3 (Android/iOS) — Material 3 |
 | Estado | Riverpod |
 | Navegación | go_router (shells por rol) |
 | Red | dio + interceptor JWT |
-| Backend (existe) | Flask + SQLAlchemy + PostgreSQL |
-| Async de pago | Stripe (checkout + webhook, pendiente backend) |
+| Backend | Flask 3 + Flask-SQLAlchemy + flask-jwt-extended |
+| Base de datos | SQLite en desarrollo · PostgreSQL en producción (misma capa de modelos) |
+| Pago | Stripe Checkout + webhook (modo test) tras interfaz `PasarelaPago` |
 
 ## Documentación (entregables del curso)
 
-- [`docs/spec.md`](docs/spec.md) — Especificación *spec-driven*: contrato de API v1 + criterios de aceptación
+- [`docs/spec.md`](docs/spec.md) — Especificación *spec-driven*: contrato de API, catálogos, restricciones y criterios de aceptación
 - [`docs/heuristics.md`](docs/heuristics.md) — Evaluación heurística (Nielsen) + guía de diseño trazable
+- [`backend/README.md`](backend/README.md) — Cómo correr la API, variables de entorno y datos de prueba
 
 ## Estructura
 
 ```
-lib/
-  core/     dio client + interceptor, tema M3, router, storage seguro
-  features/ auth · canchas · reservas · pago · gestion (dueño) · usuarios (admin)
-  shared/   widgets, extensiones, utilidades
+lib/            app Flutter
+  core/         dio client + interceptor, tema M3, router, storage seguro
+  features/     auth · cliente (canchas/reservas/pago) · gestion (dueño) · usuarios (admin)
+  shared/       widgets, formato (fechas y moneda), utilidades
+backend/        API Flask
+  blueprints/   auth · canchas · disponibilidad · reservas · pagos · gestion · admin
+  pasarelas/    base · stripe_pasarela · mock_pasarela
+  tests/        pytest (auth, reglas de negocio)
+test/           pruebas de Flutter (modelos, formato y widget)
+  support/      fake_api.dart: Dio en memoria con el JSON del backend
 ```
 
 ## Estado del proyecto
 
 - [x] Repo + scaffolding Flutter (Android/iOS)
 - [x] Spec API v1 (contract-first) y evaluación heurística
-- [ ] Autenticación (JWT) — requiere añadir endpoint al backend
-- [ ] Módulo Cliente (canchas, disponibilidad, reserva, mis reservas)
+- [x] Fases de contrato cerradas: enums, restricciones, formato de error y flujo de pago
+- [x] Backend Flask: estructura, `/api/health` y auth (register/login/logout)
+- [x] Seed de datos de prueba
+- [x] Sesión 2: catálogo de canchas y disponibilidad de 6 días
+- [x] Sesión 3 (API): reservas atómicas con su pago, checkout, webhook firmado e idempotencia, con pasarela `mock` para correr sin claves
+- [x] Sesión 4 (app): módulo Cliente completo — login/registro reales con sesión persistente, catálogo, reserva con confirmación, pago (Stripe o simulado), "Mis reservas" con reintento y perfil con cierre de sesión
 - [ ] Módulo Dueño (CRUD canchas/horarios, reservas propias)
 - [ ] Módulo Admin (usuarios, reporte)
-- [ ] Pago por pasarela (Stripe) — pendiente de backend
+- [ ] Capturas de la app en dispositivo real
 
-> La especificación de endpoints se validará contra el código Flask real cuando esté disponible.
+## Ejecutar el backend
 
-## Ejecutar
+```sh
+cd backend
+python3 -m venv .venv && . .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env          # claves reales; .env no se versiona
+flask init-db                 # tablas y catálogos
+flask seed
+flask --app app run --host=0.0.0.0 --port=5000
+```
+
+Con `PAGADORA=mock` (por defecto) el flujo de pago se recorre entero sin claves de
+Stripe: el checkout devuelve una URL ilustrativa y el pago se confirma con
+`POST /api/pagos/{id}/simular`. Detalle en [`backend/README.md`](backend/README.md).
+
+## Ejecutar la app
 
 ```sh
 flutter pub get
-flutter run
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000   # emulador Android
 ```
+
+| Destino | `API_BASE_URL` |
+|---|---|
+| Emulador Android | `http://10.0.2.2:5000` (valor por defecto) |
+| Dispositivo Android real (misma WiFi) | `http://<ip-del-pc>:5000` — ver `backend/README.md` |
+| iOS simulator | `http://localhost:5000` |
+
+El valor por defecto es `http://10.0.2.2:5000` porque `10.0.2.2` es el alias que usa el
+emulador de Android para alcanzar el `localhost` de la máquina. En un teléfono físico hay
+que pasar la IP de la máquina en la red local.
+
+## Pruebas
+
+```sh
+flutter analyze   # sin issues
+flutter test      # 47 pruebas: modelos, formato, sesión, auth, catálogo, reserva y pago
+pytest -q backend # 146 pruebas del backend
+```
+
+Las pruebas de widget no tocan la red: `test/support/fake_api.dart` monta un `Dio` con un
+adaptador propio que responde con el mismo JSON del backend, y la sesión se guarda en un
+almacenamiento en memoria. Así se ejercitan los repositorios, los providers y las
+pantallas reales, no una copia de la lógica.
+
+## Recorrido del módulo Cliente
+
+1. `Iniciar sesión` o `Regístrate` (el registro siempre crea rol `cliente`).
+2. `Canchas`: catálogo con nombre, ubicación y precio "desde".
+3. Toca una cancha → tira de 6 días y slots; los ocupados y los ya pasados salen
+   deshabilitados con su motivo.
+4. `Reservar` → resumen con el precio que va a cobrar el backend → `Pagar ahora`.
+5. Con `PAGADORA=mock` aparecen "Simular pago aprobado/rechazado"; con Stripe, "Pagar con
+   tarjeta" abre el checkout en el navegador y la app consulta el estado al volver.
+6. `Mis reservas`: paga o reintenta sin repetir el flujo; `Perfil` cierra sesión.
