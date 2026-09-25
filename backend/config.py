@@ -24,11 +24,18 @@ CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
 class Config:
     SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-cambiar-en-produccion")
 
-    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'goaltime.db'}")
+    #: Ruta **relativa** a propósito: Flask-SQLAlchemy resuelve las rutas relativas de
+    #: SQLite contra `app.instance_path`, así el archivo cae en `backend/instance/` y
+    #: nunca junto al código. Con una ruta absoluta el `rm -f instance/goaltime.db` del
+    #: README no borraría la base real y aparecería una segunda.
+    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///goaltime.db")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
 
     JWT_SECRET_KEY = SECRET_KEY
+    #: Se lee en **horas** y no en el `JWT_ACCESS_TOKEN_EXPIRES` de flask-jwt-extended
+    #: porque ese valor de configuración tiene que poder restarse a un `datetime`: sólo
+    #: acepta `timedelta`, y un "12h" leído del entorno reventaría al firmar el token.
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=int(os.getenv("JWT_ACCESS_TOKEN_HOURS", "12")))
 
     #: Tope del cuerpo de la petición. Protege el webhook de un body abusivo

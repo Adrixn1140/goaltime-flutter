@@ -7,3 +7,8 @@ pytest==9.1.1
 # Pasarela real (spec.md 3.3). Sólo se importa cuando PAGADORA=stripe; los tests y la
 # demostración con PAGADORA=mock corren sin él.
 stripe==15.6.1
+# Driver de PostgreSQL para producción (DATABASE_URL=postgresql+psycopg://...). En
+# desarrollo y en los tests se usa SQLite, así que esto no es necesario para correr el
+# proyecto: está aquí para que la ruta documentada en .env.example sea real y no una
+# promesa que revienta al primer `flask init-db` en el servidor.
+psycopg[binary]==3.3.6

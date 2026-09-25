@@ -96,8 +96,8 @@ POST /api/logout   (auth)  →  204
 ```
 - El registro público **siempre** crea el rol `cliente`. Asignar `dueno`/`admin` es una
   operación de Admin (`PATCH /api/usuarios/{id}/rol`), nunca del propio registro.
-- `access_token` expira en 12 h (`JWT_ACCESS_TOKEN_EXPIRES`); no hay refresh token: al
-  expirar, la app reloguea.
+- `access_token` expira en 12 h (configurable con `JWT_ACCESS_TOKEN_HOURS`); no hay
+  refresh token: al expirar, la app cierra la sesión, avisa y vuelve al login.
 - `POST /api/logout` es un no-op del lado del servidor (JWT stateless): su propósito es
   que la app descarte el token almacenado. La app lo llama por simetría del contrato.
 
@@ -242,7 +242,7 @@ Estado a cierre de la Sesión 4: `backend` = cubierto por `pytest` (`146 passed`
 - [x] `register` crea el usuario con rol `cliente` y devuelve `201` con token; email duplicado → `409` — `backend` `test_auth.py` · `app` "registro crea la cuenta y entra con el rol cliente"
 - [x] `login` con credenciales válidas conserva el token y el rol en la sesión — `backend` · `app` "un login correcto guarda la sesión y entra a las canchas" / "con sesión guardada entra directo a las canchas"
 - [x] `login` con email no registrado o password incorrecto muestra error claro (401, mismo mensaje en ambos casos) — `backend` · `app` "credenciales incorrectas se muestran con el mensaje del backend"
-- [~] Token vencido (12 h) → relogueo sin pérdida de datos de pantalla (no hay refresh token) — **parcial**: un `401` en una petición con token borra la sesión y vuelve al login (`sesion_expirada_test.dart`), pero **no** se conserva lo que había en pantalla: el router redirige. Sin refresh token no hay forma de recuperarlo; queda como deuda conocida.
+- [x] Al vencer el token (12 h) la app cierra la sesión, avisa y vuelve al login — `app` "un 401 con token cierra la sesión y devuelve al login" + `sesion_expirada_test.dart`. **No** se conserva lo que había en pantalla: sin refresh token (decisión de §3.1) no hay forma de recuperarlo, y el criterio se reescribió para decir lo que el diseño realmente promete.
 
 **Catálogo y disponibilidad**
 - [x] Se listan solo canchas activas, con nombre, foto y precio base — `backend` `test_canchas.py` · `app` "el catálogo ofrece las canchas y entra a la disponibilidad"

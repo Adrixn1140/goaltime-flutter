@@ -35,6 +35,16 @@ rm -f instance/goaltime.db && flask init-db && flask seed
 En producción el cambio llega con la migración correspondiente (fuera del alcance de
 esta sesión).
 
+### Dónde está la base
+
+`DATABASE_URL=sqlite:///goaltime.db` es una ruta **relativa** a propósito:
+Flask-SQLAlchemy la resuelve contra `app.instance_path`, así que el archivo vive en
+`backend/instance/goaltime.db` y nunca junto al código (que además está en `.gitignore`).
+
+En producción se cambia la variable y el resto no se toca:
+`DATABASE_URL=postgresql+psycopg://usuario:clave@host:5432/goaltime`. El driver
+(`psycopg`) ya está en `requirements.txt`; no hace falta en desarrollo ni en los tests.
+
 ## Datos de prueba
 
 Password común: `Goaltime123!`

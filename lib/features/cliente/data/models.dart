@@ -214,7 +214,7 @@ class Reserva {
   final Pago? pago;
 
   /// `true` si la reserva espera un pago: hay que pagar o reintentar el pago.
-  bool get awaitsPago => estado == EstadoReserva.pendientePago;
+  bool get pendienteDePago => estado == EstadoReserva.pendientePago;
 
   /// `true` si el pago fue rechazado y la reserva volvió a quedar pagable.
   bool get pagoFallido => pago?.estado == EstadoPago.rechazado;
