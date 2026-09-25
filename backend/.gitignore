@@ -1,0 +1,16 @@
+# Secretos: nunca versionar
+.env
+
+# Entorno virtual
+.venv/
+venv/
+
+# Base de datos de desarrollo
+*.db
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
