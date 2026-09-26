@@ -31,7 +31,7 @@ METODO_STRIPE = "stripe"
 METODO_MOCK = "mock"
 
 #: Fuente de verdad de los catálogos: `{tipo: {codigo: valor}}` (spec.md 2).
-#: `flask init-db` los inserta en la tabla `maestra` y el seed los reutiliza.
+#: `flask seed-catalogo` los inserta en la tabla `maestra` y el seed los reutiliza.
 CATALOGOS = {
     "rol": {
         ROL_CLIENTE: "Cliente",

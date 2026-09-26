@@ -424,12 +424,12 @@ tests (`tests/conftest.py`), por velocidad, y en ningún punto del camino de pro
 - Motivo: `create_all()` **sólo crea lo que falta**; no altera ni borra nada. Un cambio de
   columna en producción se aplicaría a medias, en silencio, sin avisar y sin forma de volver
   atrás. Un `ALTER` equivocado con datos reales no tiene "deshacer" con `rm -f`.
-- Un autogenerado tampoco sirve: Alembic infiere tablas y columnas, pero los `CHECK` de
-  `Horario` y el índice **parcial** `uq_reserva_slot_fecha` son SQL crudo en
-  `__table_args__` que no modela. Si se generara y se aceptara a ciegas, la migración
-  dejaría el índice como único sobre todo `(cancha_id, horario_id, fecha)`, y entonces
-  una reserva **cancelada** bloquearía el slot para siempre: justo el comportamiento que
-  §3.2 dice que no debe pasar.
+- Un autogenerado, en cambio, es un **borrador**: recoge los `CHECK` de `Horario` y el
+  índice parcial (con su `postgresql_where`), y aun así hay que leer el diff, porque lo
+  peligroso no es que no sepa crear las tablas sino que no avise de que un `String(120)`
+  pasó a `String(180)`, de que un `server_default` desapareció o de que un `ondelete`
+  cambió. La revisión manual no comprueba que el archivo esté bien escrito: comprueba que
+  diga lo que queríamos decir.
 
 ### 7.1 Migraciones
 

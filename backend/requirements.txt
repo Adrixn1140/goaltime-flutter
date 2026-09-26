@@ -10,5 +10,11 @@ stripe==15.6.1
 # Driver de PostgreSQL para producción (DATABASE_URL=postgresql+psycopg://...). En
 # desarrollo y en los tests se usa SQLite, así que esto no es necesario para correr el
 # proyecto: está aquí para que la ruta documentada en .env.example sea real y no una
-# promesa que revienta al primer `flask init-db` en el servidor.
+# promesa que revienta al primer `alembic upgrade head` en el servidor.
 psycopg[binary]==3.3.6
+# Migraciones de esquema (spec.md 7.1). El esquema lo gobierna Alembic; create_all queda
+# sólo en los tests porque no altera tablas existentes.
+alembic==1.20.0
+# Servidor de producción. El de desarrollo de Flask avisa de que no es para producción,
+# y detrás de varios workers hace falta un proceso por núcleo.
+gunicorn==26.2.0

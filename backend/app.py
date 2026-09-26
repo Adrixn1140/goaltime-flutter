@@ -80,18 +80,17 @@ def _registrar_errores_jwt(app):
 
 
 def _registrar_cli(app):
-    @app.cli.command("init-db")
-    def init_db():
-        """Crea las tablas del catálogo `maestra` y el resto del esquema."""
-        from models import CATALOGOS, Maestra
+    @app.cli.command("seed-catalogo")
+    def seed_catalogo():
+        """Siembra los catálogos de `maestra` (idempotente).
 
-        db.create_all()
-        for tipo, entradas in CATALOGOS.items():
-            for codigo, valor in entradas.items():
-                if Maestra.por_codigo(tipo, codigo) is None:
-                    db.session.add(Maestra(tipo=tipo, codigo=codigo, valor=valor))
-        db.session.commit()
-        print("Tablas creadas y catálogos cargados.")
+        Vive aparte de `flask seed` y del esquema porque son cosas distintas: el esquema
+        lo migra Alembic (`alembic upgrade head`, spec.md 7.1) y los catálogos son datos.
+        Una instalación real sólo necesita este comando; los usuarios los crea la gente.
+        """
+        from seed import cargar_catalogos
+
+        print(f"Catálogos listos: {cargar_catalogos()} filas en `maestra`.")
 
     @app.cli.command("seed")
     def seed():

@@ -1,11 +1,15 @@
-"""Datos de prueba (spec.md, Fase 2 del plan).
+"""Datos de demostración (spec.md 7.1).
 
-Crea catálogos, 1 admin, 2 dueños, 3 canchas (dos de un dueño, una del otro: así el
-aislamiento por `dueno_id` se puede comprobar de verdad), 7 días de horarios y
-1 cliente. Es **idempotente**: se puede ejecutar tantas veces como haga falta.
+Crea 1 admin, 2 dueños, 3 canchas (dos de un dueño, una del otro: así el aislamiento
+por `dueno_id` se puede comprobar de verdad), 7 días de horarios y 1 cliente. Es
+**idempotente**: se puede ejecutar tantas veces como haga falta.
 
-    flask seed        # con el venv activo
-    python seed.py    # alternativa sin el comando de Flask
+    alembic upgrade head   # primero el esquema: el seed ya no lo crea (spec.md 7.0)
+    flask seed             # datos de demostración
+    python seed.py         # alternativa sin el comando de Flask
+
+`flask seed-catalogo` siembra sólo los catálogos, que es lo que una instalación real
+necesita: los usuarios los crea la gente, no un comando.
 """
 
 from datetime import time
@@ -44,6 +48,18 @@ SLOTS = [
     (time(10, 0), time(12, 0)),
     (time(16, 0), time(18, 0)),
 ]
+
+
+def cargar_catalogos() -> int:
+    """Siembra los catálogos de `maestra` y confirma. Idempotente.
+
+    Va aparte del esquema a propósito (spec.md 7.1): los catálogos cambian cuando cambia
+    el dominio, y mezclarlos con las migraciones obligaría a rehacer la base cada vez que
+    se agrega un estado nuevo.
+    """
+    _cargar_catalogos()
+    db.session.commit()
+    return sum(len(Maestra.codigos(tipo)) for tipo in CATALOGOS)
 
 
 def _cargar_catalogos():
@@ -103,8 +119,24 @@ def _crear_horarios(cancha, tarifa):
     db.session.flush()
 
 
+def _exigir_esquema() -> None:
+    """Falla con un mensaje útil si el esquema no está.
+
+    Antes esto era `db.create_all()` y por eso `flask seed` sobre una base vacía funcionaba
+    sola. Ahora el esquema lo migra Alembic (spec.md 7.0) y un `create_all()` escondido
+    devolvería el proyecto a dos fuentes de verdad. El error de SQLAlchemy cuando falta
+    la tabla (`relation "cliente" does not exist`) no dice qué hacer al respecto.
+    """
+    from sqlalchemy import inspect
+
+    if not inspect(db.engine).has_table("cliente"):
+        raise RuntimeError(
+            "El esquema no existe en esta base. Córrelo antes:  alembic upgrade head"
+        )
+
+
 def ejecutar_seed():
-    db.create_all()
+    _exigir_esquema()
     _cargar_catalogos()
     usuarios = _crear_usuarios()
     _crear_canchas(usuarios)

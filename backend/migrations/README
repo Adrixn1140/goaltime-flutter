@@ -1,0 +1,8 @@
+Migraciones del esquema (spec.md 7.1).
+
+El esquema lo gobierna Alembic. Para el porqué de que reemplace `create_all()` —y por
+qué corre `alembic check` en CI—, ver `docs/spec.md` §7.
+
+    alembic revision --autogenerate -m "que cambia"   # borrador: hay que leer el diff
+    alembic upgrade head                               # aplicar
+    alembic downgrade -1                               # revertir

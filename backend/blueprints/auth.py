@@ -62,7 +62,7 @@ def register():
 
     rol = _rol_de_codigo(ROL_CLIENTE)
     if rol is None:
-        current_app.logger.error("Catálogo 'rol' sin cliente; ejecuta `flask init-db`")
+        current_app.logger.error("Catálogo 'rol' sin cliente; ejecuta `flask seed-catalogo`")
         return error_response(500, "Error de configuración del servidor")
 
     cliente = Cliente(nombre=nombre, email=email, rol_id=rol.id)
