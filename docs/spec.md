@@ -252,12 +252,69 @@ PATCH /api/usuarios/{id}/rol    → asignar rol Dueño/Cliente; desactivar
 GET  /api/reporte               → agregados para gráficas (ingresos, reservas por cancha/día)
 ```
 
+**Reglas de esta sección**
+- Sólo el rol `admin` entra aquí. Un `cliente` o un `dueño` reciben `403`: es distinto
+  del `404` de §3.4 porque al admin sí le corresponde saber qué usuarios existen.
+- `GET /api/usuarios` lista **todos** los usuarios con `rol` y `activo`, más dos conteos
+  (`canchas`, `reservas`) que son la información que el admin necesita para decidir sin
+  abrir tres pantallas: un dueño con 4 canchas no es el mismo caso que uno con ninguna.
+- `PATCH /api/usuarios/{id}/rol` acepta `{"rol": "cliente"|"dueno"}` y `{"activo": false}`.
+  Es la **única** vía para dar de alta un dueño o un admin (así lo dice §3.1) y por eso
+  tiene sus propias guardas:
+  - Un admin **no se cambia a sí mismo** el rol ni se desactiva (`422`). Con una sola
+    cuenta de administración, permitírselo sería un botón de cierre del sistema. Un
+    `403` estaría mal: el permiso sí existe, lo que no se permite es la acción.
+  - **Bajar de `dueno` a `cliente` exige que no tenga canchas activas** (`422`, con el
+    número en el mensaje). Si se permitiera, sus canchas quedarían con un dueño que ya
+    no puede gestionarlas: nadie las baja, nadie las ve en el catálogo activo y nadie
+    sabe por qué. Las canchas **inactivas sí se quedan** con el usuario, de modo que
+    devolverle el rol de dueño recupera su operación. El camino no es un callejón:
+    el admin las baja antes con `PATCH /api/gestion/canchas/{id}`, que §3.4 ya le
+    permite porque `dueno_o_admin` acepta el rol admin sobre cualquier cancha.
+  - Desactivar un usuario no es borrarlo: sus reservas y su historial se quedan, igual
+    que con las canchas. Se reactiva con el mismo `PATCH` (`{"activo": true}`).
+- Un usuario **inactivo no puede iniciar sesión** (`403` con mensaje propio, después de
+  validar la contraseña: si la contraseña fuera incorrecta seguiría siendo `401`, así que
+  el mensaje no confirma si el email existe). Además, un token ya emitido deja de servir
+  en la siguiente petición, porque `usuario_del_token` valida `activo` en cada llamada:
+  desactivar es una medida de seguridad, no un gesto que espere a que el token expire.
+- `GET /api/reporte` devuelve agregados listos para dibujar, sin que la app tenga que
+  traer reservas y sumar en el cliente:
+  - `ingresos.total` suma **pagos aprobados**, no reservas: un pago rechazado o
+    pendiente no es dinero. Una reserva cancelada **sí** cuenta, porque cancelar no
+    reembolsa (§3.2), así que ese dinero entró.
+  - `ingresos.por_cancha` y `reservas.por_cancha` traen `monto`, `reservas` y el nombre
+    para poder etiquetar la gráfica sin otra llamada.
+  - `ingresos.por_dia` agrupa por `reserva.fecha` (el eje natural de "cuánto entró cada
+    día"), no por `pago.creado_en`.
+  - Los conteos de reservas salen por estado, incluidas las canceladas, porque al admin le
+    interesa ver la tasa de cancelación, no borrarla del agregado.
+  - El reporte **no filtra** por `activo`. Una cancha dada de baja hizo ingresos igual, y
+    ocultar su fila haría que la suma de la gráfica no cuadrara con el total de arriba: el
+    admin lo leería como un bug. El desglose siempre suma el total, y hay un test que lo
+    comprueba.
+- Desactivar a un dueño **sí** se permite aunque tenga canchas activas, a diferencia de
+  quitarle el rol: desactivar es una medida de seguridad y las canchas quedan
+  igualmente gestionables por el admin vía §3.4. Un cambio de rol, en cambio, sí exige
+  bajar antes las canchas.
+- El reporte **no** acepta rango de fechas: la spec no lo promete y agregar un filtro
+  que nadie pidió es alcance nuevo. Si hace falta, es una sesión aparte.
+
+#### Errores de §3.5
+
+| Código | Cuándo |
+|---|---|
+| 400 | Cuerpo sin `rol` o `activo`, o `rol` que no existe en la maestra |
+| 403 | Rol distinto de `admin`; usuario inactivo intentando iniciar sesión |
+| 404 | `PATCH` sobre un id de usuario que no existe |
+| 422 | Admin cambiándose a sí mismo; bajar de dueño con canchas activas |
+
 ## 4. Códigos de error comunes
 
 | Código | Significado |
 |---|---|
 | 400 | Request mal formado / validación de campos |
-| 401 | Token ausente/vencido o credenciales inválidas |
+| 401 | Token ausente/vencido, credenciales inválidas o cuenta desactivada |
 | 403 | Sin permisos para el rol (Ej. cliente llama endpoint de dueño) |
 | 404 | Recurso no existe |
 | 409 | Conflicto (slot ya ocupado, email en uso) |
@@ -275,8 +332,8 @@ no incluye stack traces, SQL ni identificadores internos. Los detalles técnicos
 
 ## 5. Criterios de aceptación por feature
 
-Estado a cierre de la Sesión 5: `backend` = cubierto por `pytest` (`217 passed`),
-`app` = cubierto por pruebas de Flutter (`81 passed`).
+Estado: `backend` = cubierto por `pytest` (`248 passed`), `app` = cubierto por pruebas de
+Flutter (`81 passed`).
 
 **Auth**
 - [x] `register` crea el usuario con rol `cliente` y devuelve `201` con token; email duplicado → `409` — `backend` `test_auth.py` · `app` "registro crea la cuenta y entra con el rol cliente"
@@ -310,8 +367,12 @@ Estado a cierre de la Sesión 5: `backend` = cubierto por `pytest` (`217 passed`
 - [x] Un 409 o 422 de la API se muestra con el mensaje del backend y sin dejar la pantalla a medias — `app` "un 422 por solape muestra lo que dice el backend" / "un 422 al confirmar muestra el motivo y refresca"
 
 **Admin**
-- [ ] Puede ver todos los usuarios/canchas y cambiar roles — pendiente (Sesión 6)
-- [ ] El reporte refleja agregados correctos (monto, conteos por cancha/día) — pendiente
+- [x] Sólo el rol `admin` entra al panel; cliente y dueño reciben `403` — `backend` "un cliente recibe 403" / "un dueño recibe 403"
+- [x] Puede ver todos los usuarios con rol, estado y conteos, y cambiar roles — `backend` "lista todos los usuarios con rol y activo" / "trae los conteos de canchas y reservas" / "promueve un cliente a dueño" / "desactiva y reactiva un usuario"
+- [x] El admin no puede dejar la plataforma sin administración ni dejar canchas sin dueño — `backend` "el admin no se cambia a sí mismo" / "el admin no se desactiva" / "bajar de dueño con canchas activas da 422 con el número" / "bajar de dueño sólo con canchas inactivas sí se puede"
+- [x] Un usuario desactivado no puede entrar ni con un token ya emitido — `backend` "no puede iniciar sesión" / "contraseña incorrecta sigue siendo 401" / "un token ya emitido deja de servir" (`test_auth.py` cubre el 403 del login)
+- [x] El reporte refleja agregados correctos (monto, conteos por cancha/día) — `backend` "suma solo pagos aprobados" / "una reserva cancelada con pago aprobado sigue siendo ingreso" / "agrupa por cancha con el nombre para la gráfica" / "agrupa por día de reserva" / "los conteos de reservas salen por estado" / "el reporte conserva el histórico de las canchas dadas de baja"
+- [ ] La app del Admin muestra usuarios, cambia roles y dibuja el reporte — pendiente (parte de app de la Sesión 6)
 
 ### 5.1 Trazabilidad de pruebas
 
@@ -327,6 +388,7 @@ primero, el test después):
 | Pago | integración contra `MockPasarela`: idempotencia del webhook | widget: `mis_reservas_flow_test.dart` (aprobado, rechazado + reintento, Stripe) |
 | Gestión Dueño | integración: `test_gestion.py` (aislamiento, solape, baja/reactivación, confirmar exige pago, 71 casos) | widget: `test/gestion_dueno_test.dart` (lista, alta/edición, baja/reactivación, horarios, reservas, 24 casos) + `models_test.dart` (reglas de UI) |
 | Roles | unit + integración: `dueno_id` derivado del token, admin sin filtro | unit: `AuthNotifier` y mapeo de rol |
+| Admin | integración: `test_admin.py` (403 por rol, guardas de autoprotección, agregados del reporte) | widget: `test/admin_flow_test.dart` (lista, cambio de rol, deactivate, reporte) |
 | Contrato | — | unit: `models_test.dart` (enums y campos anidados) y `format_test.dart` (fechas, moneda, cuerpo del POST) |
 
 Los tests de widget usan `test/support/fake_api.dart`: un `Dio` con el mismo

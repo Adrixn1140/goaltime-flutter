@@ -9,6 +9,13 @@ Dos decisiones que los tests fijan:
 - **Un `401` no es un `403`.** Si el token es criptográficamente válido pero el usuario ya
   no está en la base, la respuesta es `401`: el cliente está autenticado, la sesión ya no
   sirve. Confundirlos haría que la app pidiera permisos que no tiene en vez de reloguear.
+- **Cuenta desactivada también es `401`.** El admin puede desactivar a un usuario
+  (`PATCH /api/usuarios/{id}/rol`, spec.md 3.5) y desactivar es una medida de seguridad:
+  si su token siguiera valiendo, bastaría con esperar a que expire, hasta 12 h después.
+  Un `401` es además lo que la app sabe manejar: cierra la sesión y manda al login, en
+  vez de dejar una pantalla llena de errores de permisos que el usuario no puede
+  arreglar. El login, en cambio, responde `403` con su propio mensaje: ahí el que llama
+  es un anónimo y el problema se explica sin rastro de sesión.
 - **El orden de los decoradores importa.** `con_rol` va **encima** de `@jwt_required()`:
 
       @con_rol(ROL_DUENO, ROL_ADMIN)
@@ -58,7 +65,7 @@ def con_rol(*roles):
             if cliente is None:
                 return error_response(401, "La sesión no es válida")
             if not cliente.activo:
-                return error_response(403, "Tu cuenta está desactivada, contacta al administrador")
+                return error_response(401, "Tu cuenta está desactivada, contacta al administrador")
             if permitidos and cliente.rol not in permitidos:
                 return error_response(403, "No tienes permisos para esta operación")
             g.usuario = cliente
