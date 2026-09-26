@@ -3,6 +3,7 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+import limites
 from extensions import db
 from models import ROL_ADMIN, ROL_CLIENTE, Cliente
 
@@ -129,3 +130,46 @@ def test_integridad_de_email_unico_en_base(app, cliente):
     with pytest.raises(IntegrityError):
         db.session.commit()
     db.session.rollback()
+
+
+# --- Topes de longitud (spec.md 7.6) -------------------------------------------------
+# PostgreSQL sí respeta los `varchar(n)` y SQLite no: un texto que se pasa de largo se
+# guardaba en desarrollo sin quejarse y devolvía 500 en producción. Estos tests fijan que
+# se rechace con 400 y no reviente, y que el tope venga de la columna.
+
+def test_registro_rechaza_email_mas_largo_que_la_columna(client):
+    cuerpo = dict(REGISTRO_VALIDO, email="a" * (limites.EMAIL + 1) + "@test.co")
+    r = client.post("/api/register", json=cuerpo)
+    assert r.status_code == 400
+    assert str(limites.EMAIL) in r.get_json()["error"]["mensaje"]
+
+
+def test_registro_acepta_email_justo_en_el_limite(client):
+    """El tope es el de la columna, no un número más conservatism: el email que llega
+    justo al límite tiene que entrar, o el usuario queda con un 400 sin explicación."""
+    dominio = "@test.co"
+    cuerpo = dict(
+        REGISTRO_VALIDO, email="a" * (limites.EMAIL - len(dominio)) + dominio
+    )
+    assert len(cuerpo["email"]) == limites.EMAIL
+    r = client.post("/api/register", json=cuerpo)
+    assert r.status_code == 201
+
+
+def test_registro_rechaza_nombre_mas_largo_que_la_columna(client):
+    r = client.post(
+        "/api/register", json=dict(REGISTRO_VALIDO, name="N" * (limites.NOMBRE + 1))
+    )
+    assert r.status_code == 400
+    assert str(limites.NOMBRE) in r.get_json()["error"]["mensaje"]
+
+
+def test_los_topes_son_los_de_las_columnas(app):
+    """El motivo de que `limites.py` exista: si alguien cambia `String(120)` a
+    `String(200)`, la validación tiene que moverse con la columna y no quedarse atrás."""
+    from models import Cancha
+
+    assert limites.NOMBRE == Cliente.__table__.c.nombre.type.length
+    assert limites.EMAIL == Cliente.__table__.c.email.type.length
+    assert limites.UBICACION == Cancha.__table__.c.ubicacion.type.length
+    assert limites.FOTO == Cancha.__table__.c.foto.type.length

@@ -23,6 +23,7 @@ from auth_helpers import con_rol, dueno_o_admin
 from blueprints.disponibilidad import parse_hora
 from errors import error_response
 from extensions import db
+from limites import FOTO, NOMBRE, TARIFA_MAXIMA, UBICACION
 from models import (
     ESTADO_CANCELADA,
     ESTADO_CONFIRMADA,
@@ -78,10 +79,10 @@ def crear_cancha():
     if not isinstance(datos, dict):
         return error_response(400, "El cuerpo debe ser JSON con los campos requeridos")
 
-    nombre, error = _texto(datos, "nombre", 120)
+    nombre, error = _texto(datos, "nombre", NOMBRE)
     if error:
         return error
-    ubicacion, error = _texto(datos, "ubicacion", 200)
+    ubicacion, error = _texto(datos, "ubicacion", UBICACION)
     if error:
         return error
     foto, error = _texto(datos, "foto", 500, obligatorio=False)
@@ -113,7 +114,7 @@ def actualizar_cancha(cancha_id):
     if not isinstance(datos, dict):
         return error_response(400, "El cuerpo debe ser JSON con los campos requeridos")
 
-    for campo, limite in (("nombre", 120), ("ubicacion", 200), ("foto", 500)):
+    for campo, limite in (("nombre", NOMBRE), ("ubicacion", UBICACION), ("foto", FOTO)):
         if campo not in datos:
             continue
         valor, error = _texto(datos, campo, limite, obligatorio=campo != "foto")
@@ -372,8 +373,22 @@ def _horario_desde_cuerpo(cuerpo=None, actual=None):
         return None, error_response(400, "tarifa debe ser un número")
     if tarifa <= 0:
         return None, error_response(422, "La tarifa debe ser mayor que cero")
+    if tarifa > TARIFA_MAXIMA:
+        # Sin esto PostgreSQL responde 500 con `numeric field overflow`; SQLite guardaba
+        # el valor sin quejarse. El tope sale de la columna (spec.md 7.6).
+        return None, error_response(422, f"La tarifa no puede superar {_pesos(TARIFA_MAXIMA)}")
 
     return {"dia": dia, "hora_inicio": inicio, "hora_fin": fin, "tarifa": tarifa}, None
+
+
+def _pesos(valor):
+    """Un número como lo escribe un dueño: 99.999.999,99.
+
+    El mensaje de la API se muestra tal cual en la app, que formatea el dinero con puntos
+    de miles y coma decimal. Poner `99999999.99` en un mensaje sería poner algo que nadie entiende.
+    """
+    entero, decimales = f"{valor:,.2f}".split(".")
+    return f"{entero.replace(',', '.')},{decimales}"
 
 
 def _hora(valor, por_defecto=None):

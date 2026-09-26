@@ -1,0 +1,17 @@
+# El contexto de build es lo que viaja al daemon: sin esto, la imagen se lleva el .venv
+# del desarrollo (cientos de MB), los secretos de .env y los __pycache__.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Secretos: la imagen se construye con variables de entorno, no con el .env del host.
+.env
+.env.*
+
+# La base de desarrollo tampoco viaja: dentro hay una imagen de Docker que no la necesita.
+instance/
+*.db
+*.sqlite3

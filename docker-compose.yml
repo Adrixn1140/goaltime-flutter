@@ -1,0 +1,65 @@
+# GoalTime en contenedores (spec.md 7.3).
+#
+#   docker compose up --build      # API en :5000 y PostgreSQL con el esquema migrado
+#   docker compose down -v          # borrar también el volumen de la base
+#
+# La app de Android sigue apuntando a http://10.0.2.2:5000: el puerto publicado es el
+# mismo, así que no hay nada que cambiar del lado de Flutter.
+#
+# `LC_COLLATE=C` no es decorativo. SQLite ordena por byte y PostgreSQL con locale ordena
+# por reglas del idioma: con `es_ES`, "Zuleima" saldría después de "ana" y el orden de las
+# listas dependería de la configuración regional del servidor. Con `C` el orden es el de
+# siempre y, sobre todo, es determinista.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-goaltime}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-goaltime-local}
+      POSTGRES_DB: ${POSTGRES_DB:-goaltime}
+      POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+    volumes:
+      - base_datos:/var/lib/postgresql/data
+    healthcheck:
+      # `-h 127.0.0.1` es lo importante, y no es un detalle. Sin `-h`, `pg_isready` consulta
+      # el socket unix, y durante la fase de init PostgreSQL levanta un servidor temporal
+      # que **sólo** escucha ahí: el healthcheck da "ok" antes de que exista un solo
+      # listener TCP, la API arranca, psycopg recibe "connection refused" y el contenedor
+      # muere. Pasó de verdad: con `depends_on: service_healthy`, la primera corrida
+      # terminó con RestartCount 1. Con `-h` se pregunta por el mismo protocolo que usa la
+      # aplicación.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-goaltime} -d ${POSTGRES_DB:-goaltime}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-goaltime}:${POSTGRES_PASSWORD:-goaltime-local}@db:5432/${POSTGRES_DB:-goaltime}
+      # En producción esto es obligatorio y aleatorio: `dev-secret-cambiar-en-produccion`
+      # está en el repo y con él se puede firmar el token de cualquier rol.
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?definí JWT_SECRET_KEY en .env (spec.md 7.2)}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      PAGADORA: ${PAGADORA:-mock}
+      APP_URL_BASE: ${APP_URL_BASE:-http://localhost:5000}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+    ports:
+      - "${PUERTO_API:-5000}:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/api/health')\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  base_datos:

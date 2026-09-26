@@ -12,7 +12,8 @@ from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_requir
 
 from errors import error_response
 from extensions import db
-from models import Maestra, ROL_CLIENTE, Cliente
+from limites import EMAIL, NOMBRE
+from models import ROL_CLIENTE, Cliente, Maestra
 
 bp = Blueprint("auth", __name__)
 
@@ -49,8 +50,13 @@ def register():
 
     if not nombre or not email or not password:
         return error_response(400, "Nombre, email y contraseña son obligatorios")
-    if len(nombre) > 120:
-        return error_response(400, "El nombre no puede superar 120 caracteres")
+    if len(nombre) > NOMBRE:
+        return error_response(400, f"El nombre no puede superar {NOMBRE} caracteres")
+    if len(email) > EMAIL:
+        # Sin esto, un email largo pasaba el regex y reventaba en PostgreSQL con un 500:
+        # en SQLite el `varchar(180)` no se aplica, así que el bug sólo aparece allí
+        # (spec.md 7.6).
+        return error_response(400, f"El email no puede superar {EMAIL} caracteres")
     if not RE_EMAIL.match(email):
         return error_response(400, "El email no tiene un formato válido")
     if len(password) < MIN_PASSWORD:

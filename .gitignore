@@ -46,3 +46,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Entorno de docker compose: contiene JWT_SECRET_KEY (spec.md 7.2)
+.env

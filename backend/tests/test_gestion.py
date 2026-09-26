@@ -15,6 +15,7 @@ from datetime import date, time, timedelta
 
 import pytest
 
+import limites
 from extensions import db
 from models import (
     ESTADO_CANCELADA,
@@ -728,3 +729,41 @@ def test_reserva_inexistente_da_404(client, app, token_dueno):
         "/api/gestion/reservas/9999", json={"accion": "cancelar"}, headers=_auth(token_dueno)
     )
     assert respuesta.status_code == 404
+
+
+# --- Tope de la tarifa (spec.md 7.6) --------------------------------------------------
+# `Numeric(10, 2)` en PostgreSQL lanza `numeric field overflow` y la API devolvía 500;
+# en SQLite el valor entraba sin rechistar. El tope sale de la columna, como los textos.
+
+def test_tarifa_mas_alta_que_la_columna_no_revienta(client, token_dueno, cancha):
+    r = client.post(
+        f"/api/gestion/canchas/{cancha.id}/horarios",
+        json={
+            "dia": 6,
+            "hora_inicio": "20:00",
+            "hora_fin": "22:00",
+            "tarifa": limites.TARIFA_MAXIMA + 1,
+        },
+        headers={"Authorization": f"Bearer {token_dueno}"},
+    )
+    assert r.status_code == 422
+    assert "99.999.999,99" in r.get_json()["error"]["mensaje"]
+
+
+def test_tarifa_justo_en_el_limite_de_la_columna(client, token_dueno, cancha):
+    """Como con el email: el valor que llega justo al tope tiene que entrar."""
+    r = client.post(
+        f"/api/gestion/canchas/{cancha.id}/horarios",
+        json={
+            "dia": 6,
+            "hora_inicio": "20:00",
+            "hora_fin": "22:00",
+            "tarifa": limites.TARIFA_MAXIMA,
+        },
+        headers={"Authorization": f"Bearer {token_dueno}"},
+    )
+    assert r.status_code == 201
+
+
+def test_tarifa_maxima_es_el_de_la_columna(app):
+    assert limites.TARIFA_MAXIMA == 99_999_999.99
