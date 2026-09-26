@@ -406,3 +406,110 @@ adaptador HTTP sustituido por una tabla de rutas. Se prueba el código real, no 
 - Recordatorios por email (APScheduler)
 - Recuperación de contraseña y verificación de email
 - Sesiones activas multi-dispositivo (revocar tokens)
+
+## 7. Esquema, migraciones y despliegue
+
+Todo lo anterior se construyó y probó contra SQLite. SQLite es cómodo en desarrollo
+porque ignora cosas que PostgreSQL no: los `varchar(n)` no se truncan (ni se rechazan),
+los `NUMERIC` son `float` y el orden alfabético es por byte. **Una base de desarrollo
+más permisiva que la de producción esconde exactamente los errores que revientan al
+desplegar**, así que esta sección fija cómo se maneja el esquema y cómo se verifica el
+contrato contra la base real.
+
+### 7.0 Quién gobierna el esquema
+
+**Alembic es la fuente de verdad del esquema.** `db.create_all()` queda relegado a los
+tests (`tests/conftest.py`), por velocidad, y en ningún punto del camino de producción.
+
+- Motivo: `create_all()` **sólo crea lo que falta**; no altera ni borra nada. Un cambio de
+  columna en producción se aplicaría a medias, en silencio, sin avisar y sin forma de volver
+  atrás. Un `ALTER` equivocado con datos reales no tiene "deshacer" con `rm -f`.
+- Un autogenerado tampoco sirve: Alembic infiere tablas y columnas, pero los `CHECK` de
+  `Horario` y el índice **parcial** `uq_reserva_slot_fecha` son SQL crudo en
+  `__table_args__` que no modela. Si se generara y se aceptara a ciegas, la migración
+  dejaría el índice como único sobre todo `(cancha_id, horario_id, fecha)`, y entonces
+  una reserva **cancelada** bloquearía el slot para siempre: justo el comportamiento que
+  §3.2 dice que no debe pasar.
+
+### 7.1 Migraciones
+
+```sh
+cd backend
+alembic upgrade head          # aplica el esquema; en producción, antes de levantar la API
+flask seed-catalogo           # catálogos de `maestra` (idempotente)
+flask seed                    # datos de demostración (opcional, fuera de producción)
+```
+
+- El **esquema** lo migra Alembic; los **datos** los siembran los comandos de Flask. La
+  razón de separarlos: las filas de `maestra` son catálogos cerrados que cambian cuando
+  el dominio cambia, y mezclarlos con el esquema obliga a rehacer la base cada vez que se
+  agrega un estado nuevo.
+- `flask init-db` desaparece. Existía por el `create_all()` y sin migraciones ya no
+  significa nada: sobre una base ya migrada no hace nada, y sobre una vacía deja el
+  esquema sin control de versiones.
+- Cada migración es un archivo versionado, se revisa a mano y es reversible con
+  `alembic downgrade`. El autogenerado es un borrador, no una fuente.
+
+### 7.2 Variables de entorno en producción
+
+Las mismas variables de §3.0, con tres exigencias adicionales:
+
+| Variable | Desarrollo | Producción | Por qué |
+|---|---|---|---|
+| `DATABASE_URL` | `sqlite:///goaltime.db` | `postgresql+psycopg://…` | driver ya en `requirements.txt` |
+| `JWT_SECRET_KEY` | clave de `.env` | **obligatoria, aleatoria** | `dev-secret-cambiar-en-produccion` es público en el repo: con él se puede firmar el token de cualquier rol |
+| `CORS_ORIGINS` | `*` | dominios reales | HEUR-5: no abrir más superficie de la necesaria |
+| `PAGADORA` | `mock` | `stripe` | §3.3 |
+| `APP_URL_BASE` | `localhost:5000` | dominio público | de aquí salen las URLs de retorno de Stripe |
+
+### 7.3 Despliegue
+
+`docker-compose.yml` levanta dos servicios: `db` (PostgreSQL 16, volumen nombrado,
+healthcheck) y `api` (gunicorn sobre el código de `backend/`). El orden lo garantiza la
+dependencia de health, no un `sleep`.
+
+- **La base se crea con `LC_COLLATE=C`.** SQLite ordena por byte y PostgreSQL con locale
+  ordena por reglas del idioma: con `es_ES`, `"Zuleima"` aparecería después de `"ana"`.
+  Fijar `C` deja el orden igual que en desarrollo y, sobre todo, **determinista**: el
+  orden de las listas no puede depender de la configuración regional del servidor.
+- La API se sirve con `gunicorn`, no con el servidor de desarrollo de Flask.
+- La app no cambia para hablar con el contenedor: el emulador de Android sigue
+  apuntando a `http://10.0.2.2:5000`.
+
+### 7.4 Verificación del contrato contra el backend real
+
+`test/support/fake_api.dart` reimplementa a mano el JSON del backend. Es cómodo y rápido,
+pero es una **copia**: si un campo se renombra en Flask, los 101 tests de la app siguen en
+verde y el error aparece en el dispositivo, en la entrega, delante del profesor.
+
+`integration_test/contrato_real_test.dart` ejercita los repositorios y modelos **reales**
+contra un backend real: login de verdad, `GET /api/usuarios`, `GET /api/reporte`,
+`GET /api/canchas` y los errores (401, 404, 422) pasando por `ApiException`. Vive fuera de
+`test/` a propósito, para que `flutter test` siga siendo hermético y rápido; lo corre
+`tool/verificar_integracion.sh`, que levanta el `compose`, espera `/api/health`, corre la
+prueba y baja todo.
+
+### 7.5 Guardián anti-drift
+
+`alembic check` compara el esquema de la base contra los modelos y **falla si difieren**.
+Corre dentro de `pytest` (sobre un SQLite temporal, para no depender de Docker) y en CI
+contra PostgreSQL. Es lo que hace de §7.0 una regla y no una intención: sin él, el próximo
+`db.Column` sin migración volvería a pasar desapercibido.
+
+### 7.6 Criterios de aceptación
+
+- [ ] `alembic upgrade head` crea el esquema completo en una base PostgreSQL vacía, con el índice parcial y los `CHECK` intactos
+- [ ] Los catálogos se siembran con un comando aparte del esquema y es idempotente
+- [ ] `alembic check` pasa en verde con los modelos actuales y **falla** si se añade una columna sin migración
+- [ ] `docker compose up` levanta API + PostgreSQL y `/api/health` responde `ok`
+- [ ] El orden de usuarios y canchas es el mismo en SQLite y en PostgreSQL (`LC_COLLATE=C`)
+- [ ] La app monta sus repositorios reales contra el backend real y parsea usuarios, reporte y catálogo
+- [ ] Un dato más largo que su `varchar` se rechaza con `422` y no revienta con `500`
+- [ ] CI corre backend, app e integración en cada push
+
+### 7.7 Fuera de alcance
+
+- Capturas en dispositivo real: no hay emulador ni dispositivo disponible en el entorno de
+  desarrollo. Queda pendiente de hacer a mano, no se puede automatizar desde aquí.
+- `PAGADORA=stripe` con claves reales: el camino verificado es el de `mock` (§3.3), que
+  recorre el mismo `_aplicar()`. Con claves, además, hay que exponer el webhook.
