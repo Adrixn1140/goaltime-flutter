@@ -99,8 +99,8 @@ que pasar la IP de la máquina en la red local.
 
 ```sh
 flutter analyze   # sin issues
-flutter test      # 81 pruebas: modelos, formato, sesión, auth, catálogo, reserva, pago y gestión del dueño
-pytest -q backend # 217 pruebas del backend
+flutter test      # 101 pruebas: modelos, formato, sesión, auth, catálogo, reserva, pago, gestión del dueño y panel de admin
+pytest -q backend # 248 pruebas del backend
 ```
 
 Las pruebas de widget no tocan la red: `test/support/fake_api.dart` monta un `Dio` con un
@@ -131,3 +131,15 @@ pantallas reales, no una copia de la lógica.
 5. `Reservas`: quién reservó, fecha, estado del pago y qué se puede hacer. `Confirmar`
    sólo aparece con pago aprobado; `Cancelar` avisa que no hay reembolso.
 6. `Perfil` cierra sesión y borra también lo que la app tenía en memoria de la gestión.
+
+## Recorrido del módulo Admin
+
+1. Inicia sesión con una cuenta de rol `admin`; la app entra directo a `Usuarios`.
+2. `Usuarios`: cada cuenta con su rol, si está activa y cuántos turnos y reservas tiene.
+3. Toca la tarjeta → `Cambiar rol` (cliente / dueño / administrador) o
+   `Activar`/`Desactivar cuenta`. Desactivar pide confirmación y avisa que el historial
+   se conserva; activar no la pide porque no es una acción destructiva.
+4. `Reporte`: ingresos cobrados, reservas y usuarios, con el desglose por cancha y por
+   día. Cada barra lleva su cifra, y si el desglose no sumara el total la app lo
+   advierte en vez de mostrar una gráfica que miente.
+5. `Perfil` cierra sesión y limpia la lista y el reporte de la memoria.

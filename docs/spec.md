@@ -332,8 +332,8 @@ no incluye stack traces, SQL ni identificadores internos. Los detalles técnicos
 
 ## 5. Criterios de aceptación por feature
 
-Estado: `backend` = cubierto por `pytest` (`248 passed`), `app` = cubierto por pruebas de
-Flutter (`81 passed`).
+Estado a cierre de la Sesión 6: `backend` = cubierto por `pytest` (`248 passed`),
+`app` = cubierto por pruebas de Flutter (`101 passed`).
 
 **Auth**
 - [x] `register` crea el usuario con rol `cliente` y devuelve `201` con token; email duplicado → `409` — `backend` `test_auth.py` · `app` "registro crea la cuenta y entra con el rol cliente"
@@ -372,7 +372,10 @@ Flutter (`81 passed`).
 - [x] El admin no puede dejar la plataforma sin administración ni dejar canchas sin dueño — `backend` "el admin no se cambia a sí mismo" / "el admin no se desactiva" / "bajar de dueño con canchas activas da 422 con el número" / "bajar de dueño sólo con canchas inactivas sí se puede"
 - [x] Un usuario desactivado no puede entrar ni con un token ya emitido — `backend` "no puede iniciar sesión" / "contraseña incorrecta sigue siendo 401" / "un token ya emitido deja de servir" (`test_auth.py` cubre el 403 del login)
 - [x] El reporte refleja agregados correctos (monto, conteos por cancha/día) — `backend` "suma solo pagos aprobados" / "una reserva cancelada con pago aprobado sigue siendo ingreso" / "agrupa por cancha con el nombre para la gráfica" / "agrupa por día de reserva" / "los conteos de reservas salen por estado" / "el reporte conserva el histórico de las canchas dadas de baja"
-- [ ] La app del Admin muestra usuarios, cambia roles y dibuja el reporte — pendiente (parte de app de la Sesión 6)
+- [x] La app del Admin muestra usuarios con su rol y sus conteos — `app` `test/admin_flow_test.dart` ("lista cada cuenta con su rol y lo que tiene encima", "sin usuarios se explica, sin romper la pantalla")
+- [x] La app cambia roles y activa/desactiva con confirmación — `app` "promover a dueño manda el rol y refresca la lista" / "desactivar pide confirmación y avisa qué se conserva" / "cancelar la confirmación no manda nada al backend" / "una cuenta desactivada lo dice en la tarjeta y se puede activar"
+- [x] La app muestra el `422` del backend tal cual, sin traducirlo — `app` "un 422 por canchas activas se muestra tal cual lo dice el backend"
+- [x] La app dibuja el reporte con cifras exactas, no sólo la barra — `app` "muestra los tres totales y el desglose por cancha" / "los estados salen con su nombre, no sólo como número" / "sin reservas el reporte lo explica en vez de mostrar ceros solos"
 
 ### 5.1 Trazabilidad de pruebas
 

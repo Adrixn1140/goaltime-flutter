@@ -154,7 +154,11 @@ class FakeAdapter implements HttpClientAdapter {
 
 /// TokenStorage en memoria con la sesión ya iniciada, para las pantallas que requieren
 /// estar dentro de la app.
-TokenStorage sesuraDePrueba({String rol = 'cliente', String nombre = 'Ana Cliente', String email = 'ana@correo.com'}) {
+TokenStorage sesuraDePrueba({
+  String rol = 'cliente',
+  String nombre = 'Ana Cliente',
+  String email = 'ana@correo.com',
+}) {
   return TokenStorage(
     MemoriaSegura({
       'access_token': 'token-de-prueba',
@@ -305,4 +309,106 @@ Map<String, Object> _reservaGestion({
     'estado': estado,
     'pago': {'id': id * 2, 'reserva_id': id, 'monto': 60000.0, 'metodo': 'mock', 'estado': pago},
   };
+}
+
+// --- Datos del panel de admin ----------------------------------------------------
+
+/// Usuarios de la plataforma, como los devuelve `GET /api/usuarios`.
+///
+/// El dueño con 2 canchas y 3 reservas está a propósito: es el caso donde el `422` del
+/// backend tiene sentido, y la app tiene que poder contarlo antes de que salte el error.
+void usuariosDeAdmin(FakeApi api) {
+  api.responder('GET', '/api/usuarios', {
+    'usuarios': [
+      _usuarioAdmin(id: 1, nombre: 'Ana Cliente', email: 'ana@correo.com', rol: 'cliente', reservas: 3),
+      _usuarioAdmin(
+        id: 2,
+        nombre: 'Diego Dueño',
+        email: 'diego@correo.com',
+        rol: 'dueno',
+        canchas: 2,
+        reservas: 1,
+      ),
+      _usuarioAdmin(
+        id: 3,
+        nombre: 'Sara Dueña',
+        email: 'sara@correo.com',
+        rol: 'dueno',
+        canchas: 1,
+      ),
+      _usuarioAdmin(id: 4, nombre: 'Admin GoalTime', email: 'admin@correo.com', rol: 'admin'),
+    ],
+  });
+}
+
+Map<String, Object> _usuarioAdmin({
+  required int id,
+  required String nombre,
+  required String email,
+  required String rol,
+  int canchas = 0,
+  int reservas = 0,
+  bool activo = true,
+}) {
+  return {
+    'id': id,
+    'nombre': nombre,
+    'email': email,
+    'rol': rol,
+    'activo': activo,
+    'canchas': canchas,
+    'reservas': reservas,
+  };
+}
+
+/// Reporte agregado. Los números cuadran entre sí: el desglose suma el total, que es lo
+/// que garantiza el backend y lo que la app muestra como advertencia si algún día no.
+void reporteDeAdmin(FakeApi api) {
+  api.responder('GET', '/api/reporte', {
+    'generado_en': '${_manana()}T10:00:00+00:00',
+    'ingresos': {
+      'total': 115000.0,
+      'por_cancha': [
+        {
+          'cancha_id': 1,
+          'nombre': 'Cancha El Retiro',
+          'monto': 75000.0,
+          'reservas': 2,
+        },
+        {
+          'cancha_id': 2,
+          'nombre': 'Cancha Laquina',
+          'monto': 40000.0,
+          'reservas': 1,
+        },
+      ],
+      'por_dia': [
+        {'fecha': _manana(), 'monto': 90000.0, 'reservas': 3},
+        {
+          'fecha': '${_manana().substring(0, 8)}28',
+          'monto': 25000.0,
+          'reservas': 1,
+        },
+      ],
+    },
+    'reservas': {
+      'total': 5,
+      'por_estado': {'pendiente_pago': 2, 'confirmada': 2, 'cancelada': 1},
+      'por_cancha': [
+        {'cancha_id': 1, 'nombre': 'Cancha El Retiro', 'reservas': 3},
+        {'cancha_id': 2, 'nombre': 'Cancha Laquina', 'reservas': 2},
+      ],
+    },
+    'usuarios': {
+      'total': 4,
+      'por_rol': {'cliente': 1, 'dueno': 2, 'admin': 1},
+      'inactivos': 0,
+    },
+  });
+}
+
+/// Monta todo lo que el panel de admin necesita.
+void adminDePrueba(FakeApi api) {
+  usuariosDeAdmin(api);
+  reporteDeAdmin(api);
 }

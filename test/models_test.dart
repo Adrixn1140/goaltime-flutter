@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:goaltime_flutter/features/cliente/data/models.dart';
 import 'package:goaltime_flutter/features/gestion/data/models.dart' as gestion;
+import 'package:goaltime_flutter/features/usuarios/data/models.dart' as admin;
 
 void main() {
   group('Catálogos', () {
@@ -248,6 +249,92 @@ void main() {
       expect(horario.rango, '08:00 – 10:00');
     });
   });
+  group('Panel de admin', () {
+    test('un usuario con rol desconocido degrada a cliente, el de menor permiso', () {
+      // Fallar hacia `cliente` y no hacia `admin`: ante la duda, la app no le muestra
+      // herramientas de administración a nadie.
+      final usuario = admin.UsuarioAdmin.fromJson({
+        'id': 9,
+        'nombre': 'Raro',
+        'email': 'raro@test.co',
+        'rol': 'superusuario',
+        'activo': true,
+      });
+
+      expect(usuario.rol, admin.RolUsuario.cliente);
+      expect(usuario.etiquetaRol, 'Cliente');
+    });
+
+    test('los conteos que no vienen se leen como cero, no como null', () {
+      final usuario = admin.UsuarioAdmin.fromJson({
+        'id': 1,
+        'nombre': 'Ana',
+        'email': 'ana@test.co',
+        'rol': 'cliente',
+      });
+
+      expect(usuario.canchas, 0);
+      expect(usuario.reservas, 0);
+      expect(usuario.activo, isTrue);
+    });
+
+    test('un reporte vacío es un reporte de ceros, no un fallo', () {
+      final reporte = _reporte(
+        ingresos: {'total': 0, 'por_cancha': [], 'por_dia': []},
+        reservas: {'total': 0, 'por_estado': {}, 'por_cancha': []},
+        usuarios: {'total': 2, 'por_rol': {'cliente': 1, 'admin': 1}, 'inactivos': 0},
+      );
+
+      expect(reporte.ingresosTotal, 0);
+      expect(reporte.reservasTotal, 0);
+      expect(reporte.estadosPresentes, isEmpty);
+      expect(reporte.desgloseCuadra, isTrue);
+    });
+
+    test('los estados del reporte salen en el orden del catálogo, no en el del JSON', () {
+      // Con el JSON desordenado, una gráfica cuyas barras cambian de lugar entre
+      // recargas no se puede leer de un vistazo a la segunda.
+      final reporte = _reporte(
+        reservas: {
+          'total': 4,
+          'por_estado': {'cancelada': 1, 'confirmada': 2, 'pendiente_pago': 1},
+          'por_cancha': <Object>[],
+        },
+        usuarios: {'total': 1, 'por_rol': {'admin': 1}, 'inactivos': 0},
+      );
+
+      expect(reporte.estadosPresentes, [
+        EstadoReserva.pendientePago,
+        EstadoReserva.confirmada,
+        EstadoReserva.cancelada,
+      ]);
+      expect(reporte.reservasDe(EstadoReserva.confirmada), 2);
+    });
+
+    test('si el desglose no suma el total la app lo puede avisar', () {
+      // El backend lo garantiza, pero la app lo comprueba: una gráfica que miente es
+      // peor que un aviso de "datos inconsistentes".
+      final reporte = _reporte(
+        ingresos: {
+          'total': 100000,
+          'por_cancha': [
+            {'cancha_id': 1, 'nombre': 'A', 'monto': 40000.0, 'reservas': 1},
+          ],
+          'por_dia': <Object>[],
+        },
+        reservas: {'total': 1, 'por_estado': {'confirmada': 1}, 'por_cancha': []},
+        usuarios: {'total': 1, 'por_rol': {'admin': 1}, 'inactivos': 0},
+      );
+
+      expect(reporte.desgloseCuadra, isFalse);
+    });
+
+    test('el `generado_en` con hora y zona se recorta al día para etiquetar', () {
+      final reporte = _reporte(usuarios: {'total': 0, 'por_rol': {}, 'inactivos': 0});
+
+      expect(reporte.generadoEn, '2026-09-20');
+    });
+  });
 }
 
 gestion.ReservaGestion _reservaGestion({
@@ -262,5 +349,19 @@ gestion.ReservaGestion _reservaGestion({
     'fecha': '2026-01-01',
     'estado': estado,
     'pago': {'id': 42, 'reserva_id': 21, 'monto': 60000.0, 'metodo': 'mock', 'estado': pago},
+  });
+}
+
+/// Reporte del backend con los bloques que cada test necesita cambiar.
+admin.ReporteAdmin _reporte({
+  Map<String, dynamic>? ingresos,
+  Map<String, dynamic>? reservas,
+  Map<String, dynamic>? usuarios,
+}) {
+  return admin.ReporteAdmin.fromJson({
+    'generado_en': '2026-09-20T10:00:00+00:00',
+    'ingresos': ingresos ?? {'total': 0, 'por_cancha': [], 'por_dia': []},
+    'reservas': reservas ?? {'total': 0, 'por_estado': {}, 'por_cancha': []},
+    'usuarios': usuarios ?? {'total': 0, 'por_rol': {}, 'inactivos': 0},
   });
 }

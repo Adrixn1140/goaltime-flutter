@@ -13,6 +13,7 @@ import '../../features/gestion/presentation/gestion_canchas_screen.dart';
 import '../../features/gestion/presentation/horarios_screen.dart';
 import '../../features/gestion/presentation/reservas_cancha_screen.dart';
 import '../../features/usuarios/presentation/admin_shell.dart';
+import '../../features/usuarios/presentation/reporte_screen.dart';
 import '../../features/usuarios/presentation/usuarios_screen.dart';
 import 'splash_screen.dart';
 
@@ -111,6 +112,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/admin/usuarios',
             builder: (context, state) => const UsuariosScreen(),
+          ),
+          GoRoute(
+            path: '/admin/reporte',
+            builder: (context, state) => const ReporteScreen(),
+          ),
+          GoRoute(
+            path: '/admin/perfil',
+            builder: (context, state) => const PerfilAdminScreen(),
           ),
         ],
       ),
