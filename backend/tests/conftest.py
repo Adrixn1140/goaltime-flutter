@@ -75,6 +75,17 @@ def dueno(app):
 
 
 @pytest.fixture()
+def dueno_otro(app):
+    """Un segundo dueño: sirve para comprobar que la gestión no se sale de su cuenta.
+
+    Sin él, una fuga entre dueños pasaría inadvertida en casi todos los tests, porque
+    comparar contra el `404` de un id inexistente da el mismo resultado que comparar
+    contra el `404` de una cancha ajena.
+    """
+    return _crear_cliente("dueno2@test.co", ROL_DUENO, "Sara Ownes")
+
+
+@pytest.fixture()
 def admin(app):
     return _crear_cliente("admin@test.co", "admin", "Admin GoalTime")
 

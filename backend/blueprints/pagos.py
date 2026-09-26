@@ -18,7 +18,7 @@ from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import jwt_required
 from sqlalchemy import func, update
 
-from blueprints.reservas import cliente_del_token
+from auth_helpers import usuario_del_token
 from errors import error_response
 from extensions import db
 from models import (
@@ -48,7 +48,7 @@ bp = Blueprint("pagos", __name__)
 @jwt_required()
 def checkout():
     """Abre la sesión de pago de una reserva pendiente y devuelve la URL de la pasarela."""
-    cliente = cliente_del_token()
+    cliente = usuario_del_token()
     if cliente is None:
         return error_response(401, "La sesión no es válida")
 
@@ -116,7 +116,7 @@ def webhook():
 @jwt_required()
 def ver_pago(pago_id):
     """Consulta el pago de una reserva (dueño o admin)."""
-    cliente = cliente_del_token()
+    cliente = usuario_del_token()
     if cliente is None:
         return error_response(401, "La sesión no es válida")
 
@@ -141,7 +141,7 @@ def simular(pago_id):
     if not isinstance(pasarela, MockPasarela):
         return error_response(403, "La pasarela activa no admite pagos simulados")
 
-    cliente = cliente_del_token()
+    cliente = usuario_del_token()
     if cliente is None:
         return error_response(401, "La sesión no es válida")
     pago = db.session.get(Pago, pago_id)

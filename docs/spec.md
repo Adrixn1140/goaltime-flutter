@@ -196,14 +196,54 @@ POST /api/pagos/{pago_id}/simular   (SOLO con PAGADORA=mock — endpoint de demo
   completa con `POST /api/pagos/{id}/simular`, que atraviesa exactamente la misma lógica
   de confirmación que el webhook.
 
-### 3.4 Dueño (filtrado por `dueno_id`; Admin puede acceder a cualquiera)
+### 3.4 Dueño (aislamiento por `dueno_id`; Admin puede acceder a cualquiera)
 ```
-GET/POST  /api/canchas
-PATCH/DELETE /api/canchas/{id}
-GET/POST/PATCH/DELETE /api/canchas/{id}/horarios
-GET /api/canchas/{id}/reservas
-PATCH /api/reservas/{id}   → confirmar / cancelar reserva
+GET    /api/gestion/canchas
+POST   /api/gestion/canchas
+PATCH  /api/gestion/canchas/{id}
+DELETE /api/gestion/canchas/{id}
+GET    /api/gestion/canchas/{id}/horarios
+POST   /api/gestion/canchas/{id}/horarios
+PATCH  /api/gestion/canchas/{id}/horarios/{horario_id}
+DELETE /api/gestion/canchas/{id}/horarios/{horario_id}
+GET    /api/gestion/canchas/{id}/reservas
+PATCH  /api/gestion/reservas/{id}
 ```
+
+**Por qué `/api/gestion/*` y no `/api/canchas`.** `GET /api/canchas` es el catálogo
+público: sin token, sólo canchas activas y sin `dueno_id`. Si la gestión del dueño
+viviera en la misma ruta, la misma llamada devolvería dos cosas distintas según quién
+pregunte, y el catálogo público dependería del rol de quien llega. Prefijo aparte,
+contrato aparte, tests aparte.
+
+**Reglas de esta sección**
+- `dueno_id` sale **siempre** del token, nunca del cuerpo: un dueño no puede crear una
+  cancha a nombre de otro. El registro de la cancha ignora cualquier `dueno_id` que
+  venga en el `POST`.
+- Un dueño sólo accede a sus propias canchas. Sobre la cancha de **otro** dueño se
+  responde `404`, no `403`: un `403` confirmaría que el id existe, y el catálogo de
+  canchas ajenas no es información que un dueño deba tener. El `403` queda para el caso
+  distinto: un `cliente` que llama a una ruta de gestión.
+- `DELETE /api/gestion/canchas/{id}` es **baja lógica** (`activo = false`), no borrado:
+  las FK son `ON DELETE RESTRICT` y una cancha con reservas no se puede eliminar. El
+  dueño la ve en su lista con `activo: false` y puede reactivarla con `PATCH`.
+- Un horario **con reservas no se borra ni se mueve** (`409`), canceladas incluidas: un
+  registro de reserva apunta a un día y una hora, y si el horario se mueve ese registro
+  pasa a hablar de algo que ya no ocurrió. La FK es `ON DELETE RESTRICT`, así que la
+  regla va en código y no en un `IntegrityError` sin manejar. Lo único que sí se puede
+  cambiar de un horario ocupado es la **tarifa**: el precio de una reserva ya cerrada
+  quedó en su pago y no se recalcula.
+- Los horarios de una cancha no pueden solaparse entre sí en el mismo día (`422`). El
+  `CHECK` de la base cubre orden y rango, no solape, así que la regla va en código y se
+  prueba en los dos sentidos: dos horarios que sólo se tocan (`10:00-12:00` y
+  `12:00-14:00`) sí pueden convivir, y un horario no se solapa consigo mismo al
+  editarlo. Repetir día y hora de inicio sobre uno que ya existe es `409` («ya existe»),
+  no `422` («se solapa»): son dos hechos distintos y el mensaje le dice al dueño cuál es.
+- `PATCH /api/gestion/reservas/{id}` recibe `{"accion": "confirmar" | "cancelar"}` y sólo
+  acepta transiciones válidas (`422` en las demás). **Confirmar exige que el pago esté
+  aprobado**: el dueño no puede confirmar una reserva que nadie ha pagado.
+- Cancelar libera el slot (el índice UNIQUE de `reserva` es parcial) y **no** devuelve
+  el dinero: la regla de cancelación y el reembolso están fuera de alcance (§6).
 
 ### 3.5 Admin
 ```
@@ -262,9 +302,10 @@ Estado a cierre de la Sesión 4: `backend` = cubierto por `pytest` (`146 passed`
 - [x] Con pasarela real la app ofrece pagar con tarjeta y no simular — `app` "con Stripe la app ofrece pagar con tarjeta, no simular"
 
 **Dueño**
-- [ ] Un dueño solo ve/edita sus canchas (aislamiento por `dueno_id`) — pendiente (Sesión 5)
-- [ ] CRUD de horarios con validación de solapamiento — pendiente
-- [ ] Puede confirmar/cancelar reservas de sus canchas — pendiente
+- [x] Un dueño solo ve/edita sus canchas (aislamiento por `dueno_id`) — `backend` `test_gestion.py` ("la cancha de otro dueño da 404, no 403", "el cliente recibe 403", "el dueño ve sólo sus canchas")
+- [x] CRUD de horarios con validación de solapamiento — `backend` "horarios que se solapan dan 422", "los que sólo se tocan pueden convivir", "no se puede mover un horario con reservas"
+- [x] Puede confirmar/cancelar reservas de sus canchas — `backend` "confirmar sin pago aprobado da 422", "cancelar libera el slot para otro cliente"
+- [ ] La app del Dueño lista, crea y edita canchas y horarios, y ve sus reservas — pendiente (parte de app de la Sesión 5)
 
 **Admin**
 - [ ] Puede ver todos los usuarios/canchas y cambiar roles — pendiente (Sesión 6)
@@ -282,6 +323,7 @@ primero, el test después):
 | Disponibilidad | integración: 6 días y motivos | widget: `reserva_flow_test.dart` (slot ocupado/transcurrido) + `format_test.dart` (agrupación de días) |
 | Reserva | integración: transacción atómica y `409` por slot ocupado | widget: confirmación previa, ticket y refresco tras el `409` |
 | Pago | integración contra `MockPasarela`: idempotencia del webhook | widget: `mis_reservas_flow_test.dart` (aprobado, rechazado + reintento, Stripe) |
+| Gestión Dueño | integración: `test_gestion.py` (aislamiento, solape, confirmar exige pago) | widget: `gestion_dueño_test.dart` (lista, alta, horarios, reservas) |
 | Roles | unit + integración: `dueno_id` derivado del token, admin sin filtro | unit: `AuthNotifier` y mapeo de rol |
 | Contrato | — | unit: `models_test.dart` (enums y campos anidados) y `format_test.dart` (fechas, moneda, cuerpo del POST) |
 

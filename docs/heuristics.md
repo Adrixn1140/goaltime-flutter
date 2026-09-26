@@ -54,6 +54,19 @@ Decisiones que no aparecen en la tabla anterior porque se tomaron al escribir el
 | Si el navegador no abre el checkout, se ofrece copiar el enlace | 9 Recuperación de errores | `pago_sheet.dart:_abrirExterno` |
 | Un `401` con token cierra la sesión y avisa; un `401` en el login no, porque ahí el error se explica | 1 Visibilidad · 3 Control y libertad | `core/network/auth_interceptor.dart`, `AuthNotifier._cerrarSesionPorExpiracion` |
 
+### Trazabilidad de la Sesión 5 (Dueño)
+
+| Decisión | Heurística | Dónde vive |
+|---|---|---|
+| Gestión en `/api/gestion/*` y no sobre `/api/canchas`: el catálogo público no debe cambiar de forma según quién pregunte | 4 Consistencia y estándares | `backend/blueprints/gestion.py`, `spec.md 3.4` |
+| La cancha de otro dueño responde `404` y el rol insuficiente `403`: un `403` confirmaría que el id existe | 5 Prevención de errores | `gestion.py:_no_existe_o_no_es_tuya` |
+| El `dueno_id` sale del token y el del cuerpo se ignora | 5 Prevención de errores | `gestion.py:crear_cancha` |
+| Canchas y horarios se dan de baja, nunca se borran: el histórico manda y las FK son `RESTRICT` | 4 Consistencia | `gestion.py:bajar_cancha` |
+| Un horario con reservas no se borra ni se mueve, canceladas incluidas; la tarifa sí se cambia, porque el precio de una reserva ya cerrada está en su pago | 4 Consistencia · 5 Prevención | `gestion.py:_tiene_reservas` |
+| Horario duplicado (`409`) y horario solapado (`422`) son mensajes distintos: son dos hechos distintos | 9 Recuperación de errores | `gestion.py:_existe_exacto`, `_solapa` |
+| Confirmar exige pago aprobado: el botón no está, el estado del sistema es el que habilita la acción | 1 Visibilidad de estado | `gestion.py:cambiar_estado_reserva` |
+| La lista de reservas dice quién reservó, pero no su correo: el dato que el dueño necesita no es el dato que el contrato expone | 5 Prevención de errores | `models.py:Reserva.to_dict_gestion` |
+
 ## Parte 3 — Mapeo código ↔ heurística
 
 En el código se añaden referencias ligeras para trazabilidad:

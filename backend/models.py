@@ -236,6 +236,18 @@ class Reserva(db.Model):
             "pago": self.pago.to_dict() if self.pago else None,
         }
 
+    def to_dict_gestion(self):
+        """Lo mismo que `to_dict` más quién reservó (spec.md 3.4).
+
+        El dueño necesita saber a quién le prestó la cancha, pero no necesita el correo:
+        incluirlo expondría el dato personal del cliente a un tercero sin que el contrato
+        lo pida.
+        """
+        datos = self.to_dict()
+        datos["cancha"]["activo"] = self.cancha.activo
+        datos["cliente"] = {"id": self.cliente.id, "nombre": self.cliente.nombre}
+        return datos
+
 
 class Pago(db.Model):
     """Pago de una reserva. `reserva_id` UNIQUE: una reserva, un pago."""

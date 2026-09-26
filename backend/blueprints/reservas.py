@@ -11,9 +11,10 @@ Dos invariantes sostienen este módulo:
 """
 
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask_jwt_extended import jwt_required
 from sqlalchemy.exc import IntegrityError
 
+from auth_helpers import usuario_del_token
 from blueprints.disponibilidad import parse_fecha, slot_vencido
 from errors import error_response
 from extensions import db
@@ -23,7 +24,6 @@ from models import (
     PAGO_PENDIENTE,
     ROL_CLIENTE,
     Cancha,
-    Cliente,
     Horario,
     Pago,
     Reserva,
@@ -37,7 +37,7 @@ bp = Blueprint("reservas", __name__)
 @jwt_required()
 def crear_reserva():
     """Reserva el slot y deja la reserva `pendiente_pago` con su pago `pendiente`."""
-    cliente = cliente_del_token()
+    cliente = usuario_del_token()
     if cliente is None:
         return error_response(401, "La sesión no es válida")
     if cliente.rol != ROL_CLIENTE:
@@ -141,7 +141,7 @@ def mis_reservas():
     El filtro es siempre `cliente_id = identidad del token`: el cliente nunca puede
     pedir las reservas de otro ni pasarlo por parámetro.
     """
-    cliente = cliente_del_token()
+    cliente = usuario_del_token()
     if cliente is None:
         return error_response(401, "La sesión no es válida")
     if cliente.rol != ROL_CLIENTE:
@@ -154,18 +154,3 @@ def mis_reservas():
     ).scalars().all()
 
     return jsonify([reserva.to_dict() for reserva in reservas])
-
-
-def cliente_del_token():
-    """Cliente del JWT. `None` si el token es válido pero el usuario ya no existe.
-
-    Vive aquí y no en un módulo aparte porque `pagos.py` necesita el mismo criterio para
-    comprobar la propiedad de la reserva: los dos endpoints deben responder `401` —no
-    `403`— cuando el token sigue siendo criptográficamente válido pero el usuario ya no
-    está en la base de datos.
-    """
-    try:
-        cliente_id = int(get_jwt_identity())
-    except (TypeError, ValueError):
-        return None
-    return db.session.get(Cliente, cliente_id)

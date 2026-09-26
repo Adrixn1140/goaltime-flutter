@@ -5,7 +5,8 @@ no es seleccionable (`motivo`), para que la app pueda deshabilitarlo con un mens
 en lugar de dejar que el usuario descubra el `409` o `422` al reservar (HEUR-5).
 
 `parse_fecha` y `slot_vencido` se reutilizan en la Sesión 3 (`POST /api/reservas`):
-el endpoint de reserva aplica exactamente la misma regla.
+el endpoint de reserva aplica exactamente la misma regla. `parse_hora` se reutiliza en la
+Sesión 5, cuando el dueño define sus propios horarios (§3.4).
 """
 
 import re
@@ -21,7 +22,9 @@ bp = Blueprint("disponibilidad", __name__)
 
 DIAS_VENTANA = 6
 FORMATO_FECHA = "%Y-%m-%d"
+FORMATO_HORA = "%H:%M"
 PATRON_FECHA = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+PATRON_HORA = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 MOTIVO_OCUPADO = "ocupado"
 MOTIVO_TRANSCURRIDO = "transcurrido"
@@ -48,6 +51,22 @@ def slot_vencido(fecha, hora_inicio, ahora=None):
     if fecha < ahora.date():
         return True
     return fecha == ahora.date() and hora_inicio <= ahora.time()
+
+
+def parse_hora(texto):
+    """Devuelve un `time` o `None` si el texto no es una hora `HH:MM` válida.
+
+    Comparte la forma estricta de `parse_fecha` porque la usa la gestión del dueño
+    (§3.4): un `int` como `8` o un `8:00` se rechazarían en la base pero pasarían un
+    `strptime` mal usado, y el dueño vería el error a la hora de reservar, no al crear
+    el horario.
+    """
+    if not isinstance(texto, str) or not PATRON_HORA.match(texto):
+        return None
+    try:
+        return datetime.strptime(texto, FORMATO_HORA).time()
+    except ValueError:
+        return None
 
 
 def _slot(horario, fecha, disponible, motivo):
