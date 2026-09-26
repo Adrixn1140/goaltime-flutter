@@ -10,6 +10,8 @@ import '../../features/cliente/presentation/perfil_screen.dart';
 import '../../features/cliente/presentation/reserva_screen.dart';
 import '../../features/gestion/presentation/dueno_shell.dart';
 import '../../features/gestion/presentation/gestion_canchas_screen.dart';
+import '../../features/gestion/presentation/horarios_screen.dart';
+import '../../features/gestion/presentation/reservas_cancha_screen.dart';
 import '../../features/usuarios/presentation/admin_shell.dart';
 import '../../features/usuarios/presentation/usuarios_screen.dart';
 import 'splash_screen.dart';
@@ -86,6 +88,20 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/dueno/canchas',
             builder: (context, state) => const GestionCanchasScreen(),
+          ),
+          GoRoute(
+            path: '/dueno/canchas/:id/horarios',
+            builder: (context, state) =>
+                HorariosScreen(canchaId: int.parse(state.pathParameters['id']!)),
+          ),
+          GoRoute(
+            path: '/dueno/canchas/:id/reservas',
+            builder: (context, state) =>
+                ReservasCanchaScreen(canchaId: int.parse(state.pathParameters['id']!)),
+          ),
+          GoRoute(
+            path: '/dueno/perfil',
+            builder: (context, state) => const PerfilDuenoScreen(),
           ),
         ],
       ),

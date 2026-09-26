@@ -105,3 +105,12 @@ String etiquetaFecha(String iso) {
   if (dias == 1) return 'Mañana';
   return etiquetaDiaCorto(fecha);
 }
+
+/// Nombre del día a partir del `dia` del backend: `0` lunes … `6` domingo.
+///
+/// Ojo con el desfase: `DateTime.weekday` numera de `1` (lunes) a `7` (domingo), y el
+/// `CHECK` de la tabla `horario` usa `0` a `6`. Un `dia - 1` de más y todos los horarios
+/// de la semana aparecen corridos un día, que es el tipo de error que nadie nota hasta
+/// que un cliente llega el día equivocado.
+String etiquetaDiaSemana(int dia) =>
+    (dia >= 0 && dia < _diasLargos.length) ? _diasLargos[dia] : 'Día $dia';

@@ -64,6 +64,29 @@ void main() {
       expect(hoyIso(ahora: DateTime(2026, 12, 25)), '2026-12-25');
     });
   });
+
+  group('etiquetaDiaSemana', () {
+    test('el 0 del backend es lunes y el 6 domingo', () {
+      expect(etiquetaDiaSemana(0), 'Lunes');
+      expect(etiquetaDiaSemana(5), 'Sábado');
+      expect(etiquetaDiaSemana(6), 'Domingo');
+    });
+
+    test('cada día coincide con el weekday de Dart para la misma fecha', () {
+      // La trampa del desfase: `DateTime.weekday` va de 1 a 7 y el backend usa 0 a 6. Si
+      // uno de los dos se equivoca, todos los horarios aparecen corridos un día y nadie
+      // lo nota hasta que un cliente llega el día que no era.
+      for (var dia = 0; dia < 7; dia++) {
+        final fecha = DateTime(2026, 9, 21 + dia); // 21 de septiembre de 2026 es lunes
+        expect(etiquetaDiaSemana(dia), etiquetaDiaLargo(fecha).split(' ').first);
+      }
+    });
+
+    test('un día fuera del rango se muestra tal cual en vez de romperse', () {
+      expect(etiquetaDiaSemana(9), 'Día 9');
+      expect(etiquetaDiaSemana(-1), 'Día -1');
+    });
+  });
 }
 
 String _iso(DateTime fecha) =>

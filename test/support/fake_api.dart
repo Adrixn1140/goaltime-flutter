@@ -154,13 +154,13 @@ class FakeAdapter implements HttpClientAdapter {
 
 /// TokenStorage en memoria con la sesión ya iniciada, para las pantallas que requieren
 /// estar dentro de la app.
-TokenStorage sesuraDePrueba({String rol = 'cliente'}) {
+TokenStorage sesuraDePrueba({String rol = 'cliente', String nombre = 'Ana Cliente', String email = 'ana@correo.com'}) {
   return TokenStorage(
     MemoriaSegura({
       'access_token': 'token-de-prueba',
       'rol': rol,
-      'nombre': 'Ana Cliente',
-      'email': 'ana@correo.com',
+      'nombre': nombre,
+      'email': email,
     }),
   );
 }
@@ -241,5 +241,68 @@ Map<String, Object> reservaDePrueba({String estado = 'pendiente_pago', String pa
     'fecha': _hoy(),
     'estado': estado,
     'pago': {'id': 9, 'reserva_id': 7, 'monto': 60000.0, 'metodo': 'mock', 'estado': pago},
+  };
+}
+
+// --- Datos de la gestión del dueño ---------------------------------------------
+
+/// Canchas del dueño, como las devuelve `GET /api/gestion/canchas`.
+void canchasDeGestion(FakeApi api) {
+  api.responder('GET', '/api/gestion/canchas', [
+    _canchaGestion(1, 'Cancha El Retiro', horarios: 2, tarifa: 45000.0),
+    _canchaGestion(2, 'Cancha Laquina', horarios: 0, activa: false),
+  ]);
+}
+
+Map<String, Object> _canchaGestion(
+  int id,
+  String nombre, {
+  int horarios = 1,
+  double? tarifa = 60000.0,
+  bool activa = true,
+}) {
+  return {
+    'id': id,
+    'nombre': nombre,
+    'ubicacion': 'Cra 45 # 12-30',
+    'foto': '',
+    'activo': activa,
+    'dueno_id': 5,
+    'total_horarios': horarios,
+    'tarifa_base': tarifa ?? 0.0,
+  };
+}
+
+/// Horarios de la cancha 1, uno de lunes y otro de miércoles.
+void horariosDePrueba(FakeApi api) {
+  api.responder('GET', '/api/gestion/canchas/1/horarios', [
+    {'id': 10, 'cancha_id': 1, 'dia': 0, 'hora_inicio': '08:00', 'hora_fin': '10:00', 'tarifa': 60000.0},
+    {'id': 11, 'cancha_id': 1, 'dia': 2, 'hora_inicio': '16:00', 'hora_fin': '18:00', 'tarifa': 55000.0},
+  ]);
+}
+
+/// Reservas de la cancha 1: una pagada por confirmar, otra sin pagar y otra cancelada.
+void reservasDeGestion(FakeApi api) {
+  api.responder('GET', '/api/gestion/canchas/1/reservas', [
+    _reservaGestion(id: 21, cliente: 'Carla Cliente', estado: 'pendiente_pago', pago: 'aprobado'),
+    _reservaGestion(id: 22, cliente: 'Julián Pérez', estado: 'pendiente_pago', pago: 'pendiente'),
+    _reservaGestion(id: 23, cliente: 'Ana Ruiz', estado: 'cancelada', pago: 'rechazado'),
+  ]);
+}
+
+Map<String, Object> _reservaGestion({
+  required int id,
+  required String cliente,
+  required String estado,
+  required String pago,
+}) {
+  return {
+    'reserva_id': id,
+    'cancha': {'id': 1, 'nombre': 'Cancha El Retiro', 'ubicacion': 'Cra 45 # 12-30', 'activo': true},
+    'horario': {'id': 10, 'hora_inicio': '08:00', 'hora_fin': '10:00', 'tarifa': 60000.0},
+    'cliente': {'id': id * 3, 'nombre': cliente},
+    'fecha': _manana(),
+    'estado': estado,
+    'pago': {'id': id * 2, 'reserva_id': id, 'monto': 60000.0, 'metodo': 'mock', 'estado': pago},
   };
 }

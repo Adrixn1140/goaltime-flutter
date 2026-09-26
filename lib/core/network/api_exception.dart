@@ -114,8 +114,11 @@ class ApiException implements Exception {
     401 => 'Vuelve a iniciar sesión.',
     403 => 'Si crees que es un error, habla con el administrador.',
     404 => 'Actualiza la lista para ver los datos actuales.',
-    409 => 'Actualiza la disponibilidad y elige otro horario.',
-    422 => 'Elige otra fecha u horario.',
+    // El mismo código significa cosas distintas según el rol: al cliente un `409` le
+    // dice que el slot se llenó, al dueño que el horario ya existe. Por eso la sugerencia
+    // no puede mencionar "disponibilidad": tiene que valer para los tres.
+    409 => 'Actualiza la lista y revisa el estado actual.',
+    422 => 'Revisa los datos e inténtalo de nuevo.',
     _ => null,
   };
 }

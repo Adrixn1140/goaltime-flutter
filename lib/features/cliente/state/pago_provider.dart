@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models.dart';
 import 'reservas_provider.dart' show reservasRepositoryProvider;
-import 'retry.dart';
+import '../../../core/state/retry.dart';
 
 /// Pago de una reserva mientras se resuelve.
 ///

@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models.dart';
 import 'canchas_provider.dart';
-import 'retry.dart';
+import '../../../core/state/retry.dart';
 
 /// Disponibilidad de una cancha: los 6 días desde hoy, agrupados por fecha.
 ///

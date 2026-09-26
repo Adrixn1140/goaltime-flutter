@@ -66,6 +66,12 @@ Decisiones que no aparecen en la tabla anterior porque se tomaron al escribir el
 | Horario duplicado (`409`) y horario solapado (`422`) son mensajes distintos: son dos hechos distintos | 9 Recuperación de errores | `gestion.py:_existe_exacto`, `_solapa` |
 | Confirmar exige pago aprobado: el botón no está, el estado del sistema es el que habilita la acción | 1 Visibilidad de estado | `gestion.py:cambiar_estado_reserva` |
 | La lista de reservas dice quién reservó, pero no su correo: el dato que el dueño necesita no es el dato que el contrato expone | 5 Prevención de errores | `models.py:Reserva.to_dict_gestion` |
+| Un `409`/`422` se muestra con el mensaje del backend y sin dejar la pantalla a medias: el dueño decide qué hacer, no adivina | 9 Recuperación de errores | `api_exception.dart` (sugerencias genéricas por rol), `gestion_repository.dart` |
+| "Confirmar" sólo aparece con pago aprobado y reserva pendiente, y el motivo de la ausencia se explica | 1 Visibilidad de estado | `models.dart:ReservaGestion.puedeConfirmar` / `motivoSinConfirmar` |
+| Toda acción destructiva (baja de cancha, borrado de horario, cancelación) pide confirmación diciendo qué se conserva | 5 Prevención de errores · 3 Control y libertad | `aviso_gestion.dart` (reutilizado en los tres diálogos) |
+| Las hojas de acciones y los formularios se desplazan: en una pantalla baja con el teclado abierto nada queda inaccesible | 8 Estética y minimalista · 7 Flexibilidad | `gestion_canchas_screen.dart:_HojaAcciones`, `form_cancha_sheet.dart`, `form_horario_sheet.dart` |
+| El día de la semana se traduce con una tabla explícita (0 = lunes) en vez de confiar en el `weekday` de Dart | 5 Prevención de errores | `format.dart:etiquetaDiaSemana` + `format_test.dart` (confrontado con `DateTime.weekday`) |
+| La pantalla de detalle pide el nombre de la cancha al provider, no lo vuelve a pedir al backend | 7 Flexibilidad y eficiencia | `horarios_screen.dart:nombreCancha` |
 
 ## Parte 3 — Mapeo código ↔ heurística
 

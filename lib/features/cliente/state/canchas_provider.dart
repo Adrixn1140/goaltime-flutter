@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../data/canchas_repository.dart';
 import '../data/models.dart';
-import 'retry.dart';
+import '../../../core/state/retry.dart';
 
 /// Catálogo de canchas del cliente.
 final canchasRepositoryProvider = Provider<CanchasRepository>(

@@ -275,8 +275,8 @@ no incluye stack traces, SQL ni identificadores internos. Los detalles técnicos
 
 ## 5. Criterios de aceptación por feature
 
-Estado a cierre de la Sesión 4: `backend` = cubierto por `pytest` (`146 passed`),
-`app` = cubierto por pruebas de Flutter (`47 passed`).
+Estado a cierre de la Sesión 5: `backend` = cubierto por `pytest` (`217 passed`),
+`app` = cubierto por pruebas de Flutter (`81 passed`).
 
 **Auth**
 - [x] `register` crea el usuario con rol `cliente` y devuelve `201` con token; email duplicado → `409` — `backend` `test_auth.py` · `app` "registro crea la cuenta y entra con el rol cliente"
@@ -305,7 +305,9 @@ Estado a cierre de la Sesión 4: `backend` = cubierto por `pytest` (`146 passed`
 - [x] Un dueño solo ve/edita sus canchas (aislamiento por `dueno_id`) — `backend` `test_gestion.py` ("la cancha de otro dueño da 404, no 403", "el cliente recibe 403", "el dueño ve sólo sus canchas")
 - [x] CRUD de horarios con validación de solapamiento — `backend` "horarios que se solapan dan 422", "los que sólo se tocan pueden convivir", "no se puede mover un horario con reservas"
 - [x] Puede confirmar/cancelar reservas de sus canchas — `backend` "confirmar sin pago aprobado da 422", "cancelar libera el slot para otro cliente"
-- [ ] La app del Dueño lista, crea y edita canchas y horarios, y ve sus reservas — pendiente (parte de app de la Sesión 5)
+- [x] La app del Dueño lista, crea y edita canchas y horarios, y ve sus reservas — `app` `test/gestion_dueno_test.dart` ("el dueño ve sólo sus canchas", "crear una cancha manda nombre y ubicación", "editar carga los datos actuales y manda el PATCH", "crear un horario manda día, horas y tarifa", "las reservas listan quién reservó", "confirmar manda la acción y refresca la lista", "una reserva cancelada no ofrece ni confirmar ni cancelar")
+- [x] La app del Dueño da de baja una cancha sin perder su historial y la puede reactivar — `app` "dar de baja pide confirmación y usa DELETE" / "reactivar una cancha inactiva usa PATCH con activo true"
+- [x] Un 409 o 422 de la API se muestra con el mensaje del backend y sin dejar la pantalla a medias — `app` "un 422 por solape muestra lo que dice el backend" / "un 422 al confirmar muestra el motivo y refresca"
 
 **Admin**
 - [ ] Puede ver todos los usuarios/canchas y cambiar roles — pendiente (Sesión 6)
@@ -323,7 +325,7 @@ primero, el test después):
 | Disponibilidad | integración: 6 días y motivos | widget: `reserva_flow_test.dart` (slot ocupado/transcurrido) + `format_test.dart` (agrupación de días) |
 | Reserva | integración: transacción atómica y `409` por slot ocupado | widget: confirmación previa, ticket y refresco tras el `409` |
 | Pago | integración contra `MockPasarela`: idempotencia del webhook | widget: `mis_reservas_flow_test.dart` (aprobado, rechazado + reintento, Stripe) |
-| Gestión Dueño | integración: `test_gestion.py` (aislamiento, solape, confirmar exige pago) | widget: `gestion_dueño_test.dart` (lista, alta, horarios, reservas) |
+| Gestión Dueño | integración: `test_gestion.py` (aislamiento, solape, baja/reactivación, confirmar exige pago, 71 casos) | widget: `test/gestion_dueno_test.dart` (lista, alta/edición, baja/reactivación, horarios, reservas, 24 casos) + `models_test.dart` (reglas de UI) |
 | Roles | unit + integración: `dueno_id` derivado del token, admin sin filtro | unit: `AuthNotifier` y mapeo de rol |
 | Contrato | — | unit: `models_test.dart` (enums y campos anidados) y `format_test.dart` (fechas, moneda, cuerpo del POST) |
 

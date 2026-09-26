@@ -13,7 +13,14 @@ import '../state/reservas_provider.dart';
 /// al entrar. Se dice explícitamente en pantalla para que el usuario no crea que es un
 /// perfil editable.
 class PerfilScreen extends ConsumerWidget {
-  const PerfilScreen({super.key});
+  const PerfilScreen({super.key, this.alSalir});
+
+  /// Limpieza específica del rol que se ejecuta antes de cerrar sesión.
+  ///
+  /// Cada rol deja en memoria listas distintas; el dueño, sus canchas y las reservas de
+  /// esas canchas. Invalidar sólo las del cliente dejaría las del dueño visibles para el
+  /// siguiente usuario del teléfono (HEUR-3).
+  final Future<void> Function()? alSalir;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -112,10 +119,11 @@ class PerfilScreen extends ConsumerWidget {
       ),
     );
     if (salir != true) return;
-    // El router devuelve al login al cambiar el estado de sesión; la lista de reservas se
-    // invalida para que el próximo cliente que entre en este teléfono no vea las de otro.
+    // El router devuelve al login al cambiar el estado de sesión; las listas del rol se
+    // invalidan para que el próximo usuario que entre en este teléfono no vea las de otro.
     ref.invalidate(misReservasProvider);
     ref.invalidate(canchasProvider);
+    await alSalir?.call();
     await ref.read(authProvider.notifier).signOut();
   }
 }

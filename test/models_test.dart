@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:goaltime_flutter/features/cliente/data/models.dart';
+import 'package:goaltime_flutter/features/gestion/data/models.dart' as gestion;
 
 void main() {
   group('Catálogos', () {
@@ -159,5 +160,107 @@ void main() {
 
       expect(resultado.estadoReserva, EstadoReserva.confirmada);
     });
+  });
+
+  group('Gestión del dueño', () {
+    test('una cancha sin `activo` se trata como activa', () {
+      // El backend siempre lo manda; si falta, asumir activa evita esconder una cancha
+      // que en realidad está en servicio.
+      final cancha = gestion.CanchaGestion.fromJson({
+        'id': 1,
+        'nombre': 'Cancha El Retiro',
+        'ubicacion': 'Cra 45 # 12-30',
+        'total_horarios': 3,
+        'tarifa_base': 45000.0,
+      });
+
+      expect(cancha.activo, isTrue);
+      expect(cancha.totalHorarios, 3);
+      expect(cancha.tarifaBase, 45000.0);
+    });
+
+    test('una cancha sin horarios ni tarifa no inventa valores', () {
+      final cancha = gestion.CanchaGestion.fromJson({
+        'id': 2,
+        'nombre': 'Cancha Laquina',
+        'ubicacion': 'Av 6 # 78-10',
+        'activo': false,
+      });
+
+      expect(cancha.totalHorarios, 0);
+      expect(cancha.tarifaBase, isNull);
+      expect(cancha.activo, isFalse);
+    });
+
+    test('confirmar se ofrece sólo con pago aprobado y reserva pendiente', () {
+      final pagada = _reservaGestion(estado: 'pendiente_pago', pago: 'aprobado');
+      final sinPago = _reservaGestion(estado: 'pendiente_pago', pago: 'pendiente');
+      final confirmada = _reservaGestion(estado: 'confirmada', pago: 'aprobado');
+
+      expect(pagada.puedeConfirmar, isTrue);
+      expect(sinPago.puedeConfirmar, isFalse);
+      expect(sinPago.motivoSinConfirmar, 'El pago no está aprobado todavía');
+      expect(confirmada.puedeConfirmar, isFalse);
+      expect(confirmada.motivoSinConfirmar, isNull);
+    });
+
+    test('una reserva sin pago no se puede confirmar y el motivo no se inventa', () {
+      final sinPago = gestion.ReservaGestion.fromJson({
+        'reserva_id': 22,
+        'cancha': {'id': 1, 'nombre': 'Cancha El Retiro', 'ubicacion': 'Cra 45'},
+        'horario': {'id': 10, 'hora_inicio': '08:00', 'hora_fin': '10:00', 'tarifa': 60000.0},
+        'cliente': {'id': 66, 'nombre': 'Julián Pérez'},
+        'fecha': '2026-01-01',
+        'estado': 'pendiente_pago',
+        'pago': null,
+      });
+
+      expect(sinPago.puedeConfirmar, isFalse);
+      expect(sinPago.motivoSinConfirmar, 'El pago no está aprobado todavía');
+      expect(sinPago.estadoPago, isNull);
+      expect(sinPago.nombreCliente, 'Julián Pérez');
+    });
+
+    test('una reserva cancelada ya no ofrece cancelar', () {
+      final cancelada = _reservaGestion(estado: 'cancelada', pago: 'rechazado');
+
+      expect(cancelada.puedeCancelar, isFalse);
+      expect(cancelada.puedeConfirmar, isFalse);
+    });
+
+    test('una reserva confirmada se puede cancelar', () {
+      final confirmada = _reservaGestion(estado: 'confirmada', pago: 'aprobado');
+
+      expect(confirmada.puedeCancelar, isTrue);
+    });
+
+    test('un horario conserva el convenio de día del backend (0 lunes)', () {
+      final horario = gestion.HorarioCancha.fromJson({
+        'id': 11,
+        'cancha_id': 1,
+        'dia': 0,
+        'hora_inicio': '08:00',
+        'hora_fin': '10:00',
+        'tarifa': 60000.0,
+      });
+
+      expect(horario.dia, 0);
+      expect(horario.rango, '08:00 – 10:00');
+    });
+  });
+}
+
+gestion.ReservaGestion _reservaGestion({
+  required String estado,
+  required String pago,
+}) {
+  return gestion.ReservaGestion.fromJson({
+    'reserva_id': 21,
+    'cancha': {'id': 1, 'nombre': 'Cancha El Retiro', 'ubicacion': 'Cra 45 # 12-30', 'activo': true},
+    'horario': {'id': 10, 'hora_inicio': '08:00', 'hora_fin': '10:00', 'tarifa': 60000.0},
+    'cliente': {'id': 63, 'nombre': 'Carla Cliente'},
+    'fecha': '2026-01-01',
+    'estado': estado,
+    'pago': {'id': 42, 'reserva_id': 21, 'monto': 60000.0, 'metodo': 'mock', 'estado': pago},
   });
 }

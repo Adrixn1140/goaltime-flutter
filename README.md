@@ -99,8 +99,8 @@ que pasar la IP de la máquina en la red local.
 
 ```sh
 flutter analyze   # sin issues
-flutter test      # 47 pruebas: modelos, formato, sesión, auth, catálogo, reserva y pago
-pytest -q backend # 146 pruebas del backend
+flutter test      # 81 pruebas: modelos, formato, sesión, auth, catálogo, reserva, pago y gestión del dueño
+pytest -q backend # 217 pruebas del backend
 ```
 
 Las pruebas de widget no tocan la red: `test/support/fake_api.dart` monta un `Dio` con un
@@ -118,3 +118,16 @@ pantallas reales, no una copia de la lógica.
 5. Con `PAGADORA=mock` aparecen "Simular pago aprobado/rechazado"; con Stripe, "Pagar con
    tarjeta" abre el checkout en el navegador y la app consulta el estado al volver.
 6. `Mis reservas`: paga o reintenta sin repetir el flujo; `Perfil` cierra sesión.
+
+## Recorrido del módulo Dueño
+
+1. Inicia sesión con una cuenta de rol `dueño`; la app entra directo a `Mis canchas`.
+2. `Mis canchas`: lista sólo las tuyas, con cuántos horarios tiene cada una.
+3. Toca una cancha → hoja de acciones: `Horarios`, `Reservas`, `Editar datos` y
+   `Dar de baja`/`Reactivar`. Ninguna acción destructiva ocurre sin confirmar.
+4. `Horarios`: una tira por día de la semana, cada horario con su rango y tarifa.
+   Alta, edición y borrado con confirmación; el backend avisa si un horario tiene
+   reservas y por eso no se puede borrar.
+5. `Reservas`: quién reservó, fecha, estado del pago y qué se puede hacer. `Confirmar`
+   sólo aparece con pago aprobado; `Cancelar` avisa que no hay reembolso.
+6. `Perfil` cierra sesión y borra también lo que la app tenía en memoria de la gestión.

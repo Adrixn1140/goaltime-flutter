@@ -7,7 +7,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../data/models.dart';
 import '../data/reservas_repository.dart';
-import 'retry.dart';
+import '../../../core/state/retry.dart';
 
 final reservasRepositoryProvider = Provider<ReservasRepository>(
   (ref) => ReservasRepository(ref.watch(apiClientProvider)),
