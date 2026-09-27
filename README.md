@@ -34,6 +34,7 @@ contrato de construcción (no de migración).
 - [`docs/spec.md`](docs/spec.md) — Especificación *spec-driven*: contrato de API, catálogos, restricciones y criterios de aceptación
 - [`docs/heuristics.md`](docs/heuristics.md) — Evaluación heurística (Nielsen) + guía de diseño trazable
 - [`docs/ESTADO.md`](docs/ESTADO.md) — Qué está construido y qué está comprobado, con la evidencia de verificación y los huecos conocidos
+- [`docs/ENTORNO.md`](docs/ENTORNO.md) — Versiones exactas e instalación paso a paso para ejecutar el proyecto en Linux, Windows o macOS
 - [`backend/README.md`](backend/README.md) — Cómo correr la API, variables de entorno y datos de prueba
 
 ## Estructura
