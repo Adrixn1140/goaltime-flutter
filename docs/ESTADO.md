@@ -111,9 +111,12 @@ Cada una está argumentada en el sitio al que apunta; aquí sólo está el índi
 
 Lo que el proyecto **no** hace, escrito sin adornos.
 
-1. **Capturas en dispositivo real: pendiente.** No hay emulador ni dispositivo en el
-   entorno de desarrollo, así que no se pudo automatizar. Es lo único que queda abierto
-   en el checklist del README y hay que hacerlo a mano.
+1. **Capturas de la app: pendiente.** No se tomó ninguna. El toolchain de Android está
+   instalado y con las licencias aceptadas —SDK 36, emulador 37.1.11, imagen de sistema
+   `android-34` y un AVD llamado `cel_test`—, y `/dev/kvm` está presente, así que la
+   aceleración por hardware está disponible. Lo que no llegó a pasar es **arrancar el
+   emulador**: con 2 núcleos y 3.7 GB de RAM no se intentó. Queda como tarea manual, con
+   las instrucciones en [`ENTORNO.md`](ENTORNO.md#emulador-de-android).
 2. **Stripe con claves reales no está verificado.** El camino probado de punta a punta
    es el de `PAGADORA=mock`. Con claves reales además habría que exponer el webhook, que
    aquí no se puede. El código de Stripe está detrás de la interfaz `PasarelaPago` y es
