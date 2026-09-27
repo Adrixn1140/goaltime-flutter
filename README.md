@@ -115,7 +115,7 @@ que pasar la IP de la máquina en la red local.
 ```sh
 flutter analyze   # sin issues
 flutter test      # 101 pruebas: modelos, formato, sesión, auth, catálogo, reserva, pago, gestión del dueño y panel de admin
-cd backend && pytest -q   # 258 pruebas del backend
+cd backend && pytest -q   # 278 pruebas del backend (las mismas contra PostgreSQL, ver abajo)
 
 # El contrato de la app contra el backend real (levanta Docker, migra, siembra y baja):
 tool/verificar_integracion.sh

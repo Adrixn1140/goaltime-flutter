@@ -75,7 +75,7 @@ Decisiones que no aparecen en la tabla anterior porque se tomaron al escribir el
 | Un rol desconocido en la respuesta se degrada a `cliente`, el de menor permiso: ante la duda, no se muestra administración a nadie | 5 Prevención de errores | `usuarios/data/models.dart:_rolDesdeCodigo` + `models_test.dart` |
 | Los estados del reporte se ordenan con el catálogo, no como llegan del JSON: una gráfica cuyas barras cambian de sitio entre recargas no se lee | 4 Consistencia y estándares | `models.dart:estadosPresentes` |
 | Cada barra lleva su cifra al lado, y el desglose se contrasta con el total: una gráfica sin números obliga a estimar a ojo, y una que no cuadra se avisa | 1 Visibilidad de estado | `reporte_screen.dart:_Barras`, `models.dart:desgloseCuadra` |
-| Cuenta desactivada cierra la sesión (401) en vez de dejar la pantalla llena de errores de permisos: el `401` es lo único que la app sabe manejar | 9 Recuperación de errores | `auth_helpers.py:con_rol`, `perfil_screen.dart:alSalir` |
+| Cuenta desactivada cierra la sesión (401) en vez de dejar la pantalla llena de errores de permisos: el `401` es lo único que la app sabe manejar | 9 Recuperación de errores | `auth_helpers.py:con_rol`, `perfil_screen.dart:alSalir`, `test_sesion_desactivada.py` (barrido de las 18 rutas protegidas) |
 | El logout del admin invalida usuarios y reporte: la lista es de la plataforma entera y sin limpiarla se vería sin ser admin | 3 Control y libertad | `admin_shell.dart:PerfilAdminScreen` |
 | La pantalla de detalle pide el nombre de la cancha al provider, no lo vuelve a pedir al backend | 7 Flexibilidad y eficiencia | `horarios_screen.dart:nombreCancha` |
 

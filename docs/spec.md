@@ -332,8 +332,9 @@ no incluye stack traces, SQL ni identificadores internos. Los detalles técnicos
 
 ## 5. Criterios de aceptación por feature
 
-Estado a cierre de la Sesión 6: `backend` = cubierto por `pytest` (`248 passed`),
-`app` = cubierto por pruebas de Flutter (`101 passed`).
+Estado al cierre: `backend` = cubierto por `pytest` (`278 passed`, los mismos contra
+PostgreSQL 16), `app` = cubierto por pruebas de Flutter (`101 passed`, más `9` de contrato
+real que corren en CI).
 
 **Auth**
 - [x] `register` crea el usuario con rol `cliente` y devuelve `201` con token; email duplicado → `409` — `backend` `test_auth.py` · `app` "registro crea la cuenta y entra con el rol cliente"
@@ -516,17 +517,33 @@ contra PostgreSQL. Es lo que hace de §7.0 una regla y no una intención: sin é
 - [x] `alembic check` pasa en verde con los modelos actuales y **falla** si se añade una columna sin migración
 - [x] `docker compose up` levanta API + PostgreSQL y `/api/health` responde `ok`
 - [x] El orden de usuarios y canchas es el mismo en SQLite y en PostgreSQL (`LC_COLLATE=C`)
-- [ ] La app monta sus repositorios reales contra el backend real y parsea usuarios, reporte y catálogo
+- [x] La app monta sus repositorios reales contra el backend real y parsea usuarios, reporte y catálogo
 - [x] Un dato más largo que su `varchar` se rechaza con un `4xx` y no revienta con `500` (`400` si es formato o longitud, `422` si es una regla de negocio como la tarifa)
-- [ ] CI corre backend, app e integración en cada push
+- [x] CI corre backend, app e integración en cada push
 
-El criterio del contrato queda sin marcar a propósito: el código está escrito y analysed,
-pero en este equipo `flutter_tester` no sobrevive a la red real (3.7 GB de RAM con el swap
-lleno; el kernel lo mata y `flutter_tools` reporta `did not complete`). Los endpoints que el
-test verifica se comprobaron a mano contra el `compose` —login 200, `/api/reporte` sin token
-401, `PATCH /api/usuarios/999999/rol` 404— y la corrida completa queda para CI, que es donde
-está en el workflow. Marcarlo sin haberlo corrido sería la clase de mentira que este
-capítulo existe para evitar.
+Los dos criterios que estaban sin marcar se marcan porque ya se corrieron, no porque se
+supiera que debían cumplirse. El workflow `.github/workflows/ci.yml` tiene cuatro jobs —`backend`
+(SQLite), `backend-postgres` (la suite completa contra PostgreSQL 16, más `alembic
+upgrade head` y `alembic check`), `app` (`flutter analyze --fatal-infos` y la suite) e
+`integracion` (el contrato real)— y la primera corrida sobre `main` dio los cuatro en
+verde: `278 passed` en SQLite, `278 passed` en PostgreSQL y los `9` tests de
+`contrato_real_test.dart` pasando contra una API de verdad.
+
+Eso último es lo que este capítulo llevaba días esperando. El contrato real no se puede
+ejecutar en la máquina de desarrollo: `flutter_tester` no sobrevive a la red real con
+3.7 GB de RAM y el swap lleno, el kernel lo mata y `flutter_tools` reporta `did not
+complete`. Por eso el criterio estaba escrito y sin marcar, con la comprobación manual
+de los endpoints como evidencia provisional —login 200, `/api/reporte` sin token 401,
+`PATCH /api/usuarios/999999/rol` 404—. Marcarlo sin haberlo corrido habría sido la clase
+de mentira que este capítulo existe para evitar; ahora que CI lo corrió, la evidencia es
+la corrida entera y el criterio se marca sin reservas.
+
+Un matiz que conviene no perder: el job de integración **depende de que el contrato se
+omita en silencio cuando falta `GOALTIME_API_URL`**. En el job `app`, que no define esa
+variable, los `9` tests aparecen como `skipped` y el job sigue verde. Es deliberado —
+sin la variable la suite por defecto no habla con la red— pero significa que un job
+verde no siempre es un job que comprobó algo. El workflow lo evita pasando la variable
+explícitamente en el job que sí debe hablar con la API.
 
 ### 7.7 Fuera de alcance
 
