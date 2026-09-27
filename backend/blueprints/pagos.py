@@ -14,11 +14,10 @@ otra recibe `200 {"aplicado": false}` sin reescribir nada. Un `SELECT` previo ha
 permitido que ambas escribieran.
 """
 
-from flask import Blueprint, current_app, jsonify, request
-from flask_jwt_extended import jwt_required
+from flask import Blueprint, current_app, g, jsonify, request
 from sqlalchemy import func, update
 
-from auth_helpers import usuario_del_token
+from auth_helpers import con_rol
 from errors import error_response
 from extensions import db
 from models import (
@@ -45,12 +44,13 @@ bp = Blueprint("pagos", __name__)
 
 
 @bp.post("/pagos/checkout")
-@jwt_required()
+@con_rol()
 def checkout():
     """Abre la sesión de pago de una reserva pendiente y devuelve la URL de la pasarela."""
-    cliente = usuario_del_token()
-    if cliente is None:
-        return error_response(401, "La sesión no es válida")
+    # `con_rol()` sin roles porque aquí el rol no filtra: quien paga es el que reservó y,
+    # por soporte, también el admin (más abajo). Lo que sí filtra el decorador es la
+    # sesión, y con ella el `401` de cuenta desactivada.
+    cliente = g.usuario
 
     datos = request.get_json(silent=True)
     if not isinstance(datos, dict):
@@ -113,12 +113,10 @@ def webhook():
 
 
 @bp.get("/pagos/<int:pago_id>")
-@jwt_required()
+@con_rol()
 def ver_pago(pago_id):
     """Consulta el pago de una reserva (dueño o admin)."""
-    cliente = usuario_del_token()
-    if cliente is None:
-        return error_response(401, "La sesión no es válida")
+    cliente = g.usuario
 
     pago = db.session.get(Pago, pago_id)
     if pago is None or pago.reserva is None:
@@ -130,7 +128,7 @@ def ver_pago(pago_id):
 
 
 @bp.post("/pagos/<int:pago_id>/simular")
-@jwt_required()
+@con_rol()
 def simular(pago_id):
     """Endpoint de demostración: cierra el pago sin pasarela externa.
 
@@ -141,9 +139,7 @@ def simular(pago_id):
     if not isinstance(pasarela, MockPasarela):
         return error_response(403, "La pasarela activa no admite pagos simulados")
 
-    cliente = usuario_del_token()
-    if cliente is None:
-        return error_response(401, "La sesión no es válida")
+    cliente = g.usuario
     pago = db.session.get(Pago, pago_id)
     if pago is None or pago.reserva is None:
         return error_response(404, "El pago solicitado no existe")

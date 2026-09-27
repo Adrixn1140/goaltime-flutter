@@ -10,11 +10,10 @@ Dos invariantes sostienen este módulo:
    peticiones simultáneas no puedan colarse entre la comprobación y la escritura.
 """
 
-from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required
+from flask import Blueprint, g, jsonify, request
 from sqlalchemy.exc import IntegrityError
 
-from auth_helpers import usuario_del_token
+from auth_helpers import con_rol
 from blueprints.disponibilidad import parse_fecha, slot_vencido
 from errors import error_response
 from extensions import db
@@ -34,12 +33,13 @@ bp = Blueprint("reservas", __name__)
 
 
 @bp.post("/reservas")
-@jwt_required()
+@con_rol()
 def crear_reserva():
     """Reserva el slot y deja la reserva `pendiente_pago` con su pago `pendiente`."""
-    cliente = usuario_del_token()
-    if cliente is None:
-        return error_response(401, "La sesión no es válida")
+    # `con_rol()` sin roles a propósito: filtra la sesión (incluida la cuenta desactivada)
+    # y el filtro por rol se hace aquí para poder decir *por qué* en el 403. Si el rol
+    # fuera al decorador, el `403` sería el genérico y se perdería el motivo.
+    cliente = g.usuario
     if cliente.rol != ROL_CLIENTE:
         return error_response(403, "Sólo los clientes pueden reservar canchas")
 
@@ -134,16 +134,14 @@ def _slot_ocupado(cancha_id, horario_id, fecha):
 
 
 @bp.get("/mis-reservas")
-@jwt_required()
+@con_rol()
 def mis_reservas():
     """Reservas del cliente autenticado, de la más reciente a la más antigua.
 
     El filtro es siempre `cliente_id = identidad del token`: el cliente nunca puede
     pedir las reservas de otro ni pasarlo por parámetro.
     """
-    cliente = usuario_del_token()
-    if cliente is None:
-        return error_response(401, "La sesión no es válida")
+    cliente = g.usuario
     if cliente.rol != ROL_CLIENTE:
         return error_response(403, "Este recurso es sólo para clientes")
 
