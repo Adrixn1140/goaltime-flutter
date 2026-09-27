@@ -23,8 +23,10 @@ contrato de construcción (no de migración).
 | Estado | Riverpod |
 | Navegación | go_router (shells por rol) |
 | Red | dio + interceptor JWT |
-| Backend | Flask 3 + Flask-SQLAlchemy + flask-jwt-extended |
-| Base de datos | SQLite en desarrollo · PostgreSQL en producción (misma capa de modelos) |
+| Backend | Flask 3 + Flask-SQLAlchemy + flask-jwt-extended + Alembic |
+| Base de datos | SQLite en desarrollo · PostgreSQL 16 en producción (misma capa de modelos) |
+| Servidor | gunicorn detrás del `docker compose` |
+| CI | GitHub Actions: pytest, PostgreSQL con migraciones, `flutter analyze`/`test` y contrato real |
 | Pago | Stripe Checkout + webhook (modo test) tras interfaz `PasarelaPago` |
 
 ## Documentación (entregables del curso)
@@ -43,9 +45,12 @@ lib/            app Flutter
 backend/        API Flask
   blueprints/   auth · canchas · disponibilidad · reservas · pagos · gestion · admin
   pasarelas/    base · stripe_pasarela · mock_pasarela
-  tests/        pytest (auth, reglas de negocio)
+  migrations/   Alembic: el esquema lo gobierna aquí, no `create_all()`
+  tests/        pytest (auth, reglas de negocio, anti-drift)
 test/           pruebas de Flutter (modelos, formato y widget)
   support/      fake_api.dart: Dio en memoria con el JSON del backend
+tool/           verificar_integracion.sh: backend real + contrato de la app
+.github/        CI: backend, PostgreSQL con migraciones, app y contrato
 ```
 
 ## Estado del proyecto
@@ -58,8 +63,10 @@ test/           pruebas de Flutter (modelos, formato y widget)
 - [x] Sesión 2: catálogo de canchas y disponibilidad de 6 días
 - [x] Sesión 3 (API): reservas atómicas con su pago, checkout, webhook firmado e idempotencia, con pasarela `mock` para correr sin claves
 - [x] Sesión 4 (app): módulo Cliente completo — login/registro reales con sesión persistente, catálogo, reserva con confirmación, pago (Stripe o simulado), "Mis reservas" con reintento y perfil con cierre de sesión
-- [ ] Módulo Dueño (CRUD canchas/horarios, reservas propias)
-- [ ] Módulo Admin (usuarios, reporte)
+- [x] Módulo Dueño (CRUD canchas/horarios, reservas propias)
+- [x] Módulo Admin (usuarios, reporte)
+- [x] Esquema con Alembic y contenedores (`docker compose` con PostgreSQL 16 y gunicorn)
+- [x] Verificación en cada push: backend, PostgreSQL con migraciones y anti-drift, app y contrato app ↔ backend real
 - [ ] Capturas de la app en dispositivo real
 
 ## Ejecutar el backend
@@ -69,9 +76,17 @@ cd backend
 python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env          # claves reales; .env no se versiona
-flask init-db                 # tablas y catálogos
-flask seed
+alembic upgrade head          # esquema
+flask seed-catalogo           # catálogos
+flask seed                    # usuarios, canchas y horarios de prueba
 flask --app app run --host=0.0.0.0 --port=5000
+```
+
+O con contenedores, que es como se despliega:
+
+```sh
+cp .env.compose.example .env  # en la raíz del repositorio
+docker compose up -d --build # migra y siembra al arrancar
 ```
 
 Con `PAGADORA=mock` (por defecto) el flujo de pago se recorre entero sin claves de
@@ -100,13 +115,21 @@ que pasar la IP de la máquina en la red local.
 ```sh
 flutter analyze   # sin issues
 flutter test      # 101 pruebas: modelos, formato, sesión, auth, catálogo, reserva, pago, gestión del dueño y panel de admin
-pytest -q backend # 248 pruebas del backend
+cd backend && pytest -q   # 258 pruebas del backend
+
+# El contrato de la app contra el backend real (levanta Docker, migra, siembra y baja):
+tool/verificar_integracion.sh
 ```
 
 Las pruebas de widget no tocan la red: `test/support/fake_api.dart` monta un `Dio` con un
 adaptador propio que responde con el mismo JSON del backend, y la sesión se guarda en un
 almacenamiento en memoria. Así se ejercitan los repositorios, los providers y las
 pantallas reales, no una copia de la lógica.
+
+Ese doble es una copia, así que hay algo que la vigila:
+`test/contrato_real_test.dart` habla con un backend de verdad —login, catálogo, reporte y
+los errores 401/404/422 pasando por `ApiException`— y se omite salvo que se le pase
+`GOALTIME_API_URL`. `tool/verificar_integracion.sh` se la pasa; en CI corre en cada push.
 
 ## Recorrido del módulo Cliente
 

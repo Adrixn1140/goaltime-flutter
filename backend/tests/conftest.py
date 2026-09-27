@@ -36,11 +36,25 @@ from models import (  # noqa: E402
 def app():
     aplicacion = create_app(TestConfig)
     with aplicacion.app_context():
+        # El `drop_all` de arranque no es desconfianza: es idempotencia. Una corrida
+        # interrumpida deja las tablas y sus filas en PostgreSQL, y la siguiente falla con
+        # `duplicate key` en los catálogos al empezar, sin que nadie haya tocado el
+        # código. En SQLite el esquema vive en memoria y nunca pasa; con una base de
+        # verdad, pasar es obligatorio.
+        db.drop_all()
         db.create_all()
         _cargar_catalogos()
         yield aplicacion
         db.session.remove()
         db.drop_all()
+        # `dispose()` no es opcional cuando la base es PostgreSQL. Cada test crea su propia
+        # app y por tanto su propio engine con su propio pool; sin cerrar ese pool, las
+        # conexiones se quedan vivas con transacciones abiertas y `DROP TABLE` del test
+        # siguiente se queda esperando un bloqueo que nadie va a soltar, y agota el
+        # `pool_timeout` de 30 segundos por operación, que es exactamente como se ve desde
+        # fuera: 30 segundos por test y ningún fallo. En SQLite no se nota, porque cada
+        # engine abre su base en memoria y no hay nadie bloqueando a nadie.
+        db.engine.dispose()
 
 
 @pytest.fixture()

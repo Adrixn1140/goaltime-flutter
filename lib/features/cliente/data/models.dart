@@ -15,14 +15,6 @@ enum EstadoPago { pendiente, aprobado, rechazado }
 /// Motivos por los que un slot no es seleccionable (`spec.md 3.2`).
 enum MotivoSlot { ocupado, transcurrido }
 
-/// Traduce el código del backend a su enum, con el mismo criterio que `fromJson`.
-///
-/// Vive aquí y no en el panel de admin para que las claves `pendiente_pago`/`confirmada`/
-/// `cancelada` estén escritas en un solo sitio: el admin agrupa por estado con esta
-/// función, y una copia de la tabla sería una tabla que algún día se queda vieja.
-EstadoReserva estadoReservaDesde(String? codigo) =>
-    _catalogo(_estadosReserva, codigo, EstadoReserva.pendientePago);
-
 extension EstadoReservaX on EstadoReserva {
   String get codigo => switch (this) {
     EstadoReserva.pendientePago => 'pendiente_pago',

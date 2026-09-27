@@ -34,4 +34,12 @@ EXPOSE 5000
 # `flask seed-catalogo` siembra los catálogos que el dominio necesita para funcionar.
 # `flask seed` (usuarios, canchas y horarios de prueba) no está en la línea de arranque a
 # propósito: una instalación real no siembra cuentas de demostración.
-CMD ["sh", "-c", "alembic upgrade head && flask seed-catalogo && gunicorn --bind 0.0.0.0:5000 --workers 2 --access-logfile - app:app"]
+#
+# `--timeout 120` no es un número inventado. Verificar una contraseña con scrypt cuesta
+# alrededor de un segundo de CPU; en una máquina de dos núcleos con carga, un login tardó
+# medido 18 segundos. Con el valor por defecto de 30, gunicorn.mató al worker con SIGKILL
+# ("WORKER TIMEOUT") mientras respondía, y quien estaba esperando se quedó sin respuesta y
+# sin worker. El timeout tiene que ser holgado para una petición legítima y corta frente a
+# una petición colgada, que es justo para lo que existe: los 120 s son el techo, no el normal.
+# `--worker-tmp-dir /dev/shm` evita que gunicorn use el disco para el heartbeat de los workers.
+CMD ["sh", "-c", "alembic upgrade head && flask seed-catalogo && gunicorn --bind 0.0.0.0:5000 --workers 2 --timeout 120 --worker-tmp-dir /dev/shm --access-logfile - app:app"]

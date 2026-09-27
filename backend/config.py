@@ -55,6 +55,14 @@ class Config:
 
 class TestConfig(Config):
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    #: SQLite en memoria por omisión, porque `pytest` no debe depender de nada instalado.
+    #:
+    #: `TEST_DATABASE_URL` existe para el caso que SQLite no puede representar: varchar que
+    #: no se aplican, `Numeric(10,2)` que acepta de más, orden por collation, índices
+    #: parciales. Un job de CI que dice "probamos con PostgreSQL" mientras la suite corre
+    #: sobre SQLite no prueba nada, y es peor que no tener ese job: da confianza que no
+    #: está ganada. Con esta variable el job de PostgreSQL de `.github/workflows/ci.yml`
+    #: corre la suite completa de verdad.
+    SQLALCHEMY_DATABASE_URI = os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")
     JWT_SECRET_KEY = "test-secret-goaltime-suficientemente-largo"
     PAGADORA = "mock"

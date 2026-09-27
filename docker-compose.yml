@@ -19,6 +19,15 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-goaltime-local}
       POSTGRES_DB: ${POSTGRES_DB:-goaltime}
       POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+    # Puerto al host, en 5433 y no en 5432, para no chocar con un PostgreSQL local. Es lo
+    # que permite correr la suite y el guardián anti-drift contra esta base de verdad:
+    #   createdb -h 127.0.0.1 -U goaltime goaltime_test
+    #   TEST_DATABASE_URL=postgresql+psycopg://goaltime:goaltime-local@127.0.0.1:5433/goaltime_test pytest -q
+    # SQLite no aplica el varchar, ni el `Numeric(10,2)`, ni ordena como PostgreSQL: sin
+    # esta puerta no hay forma de comprobar aquí lo que SQLite esconde. La base de los
+    # tests es aparte a propósito, porque la fixture borra el esquema entre tests.
+    ports:
+      - "${PUERTO_DB:-5433}:5432"
     volumes:
       - base_datos:/var/lib/postgresql/data
     healthcheck:

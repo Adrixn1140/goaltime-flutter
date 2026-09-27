@@ -13,8 +13,9 @@ pip install -r requirements.txt
 cp .env.example .env
 python -c "import secrets; print(secrets.token_hex(32))"   # -> JWT_SECRET_KEY
 
-flask init-db      # crea tablas y carga los catálogos de `maestra`
-flask seed         # usuarios, canchas y horarios de prueba (idempotente)
+alembic upgrade head    # crea el esquema
+flask seed-catalogo     # carga los catálogos de `maestra`
+flask seed              # usuarios, canchas y horarios de prueba (idempotente)
 
 flask --app app run --host=0.0.0.0 --port=5000
 ```
@@ -24,16 +25,28 @@ el servidor; desde el emulador basta `127.0.0.1`.
 
 ### Cambios de esquema
 
-Todavía no hay migraciones: `flask init-db` crea lo que falta, pero **no altera** tablas
-existentes. Si cambia un modelo (por ejemplo el índice UNIQUE parcial de `reserva`),
-hay que rehacer la base de desarrollo:
+El esquema lo gobierna **Alembic**, no `db.create_all()`. `create_all()` sólo aparece en
+los tests, y `flask init-db` ya no existe: se quitó para que no hubiera dos maneras de
+construir el esquema, de las cuales una siempre se olvida.
+
+Si cambia un modelo, la migración va con el modelo, en el mismo commit:
 
 ```sh
-rm -f instance/goaltime.db && flask init-db && flask seed
+alembic revision --autogenerate -m "agrega columna X a cliente"
+# revisá el archivo generado: alembic no sabe de CHECKs, índices parciales ni renombres
+alembic upgrade head
+alembic check          # debe decir que no hay diferencias
 ```
 
-En producción el cambio llega con la migración correspondiente (fuera del alcance de
-esta sesión).
+`alembic check` es el guardián: compara el esquema de la base contra los modelos y falla
+si divergen. Corre dentro de `pytest` y en CI. Sin él, un `db.Column` sin migración
+pasaría desapercibido hasta el despliegue.
+
+Para empezar de cero en desarrollo:
+
+```sh
+rm -f instance/goaltime.db && alembic upgrade head && flask seed-catalogo && flask seed
+```
 
 ### Dónde está la base
 
@@ -44,6 +57,23 @@ Flask-SQLAlchemy la resuelve contra `app.instance_path`, así que el archivo viv
 En producción se cambia la variable y el resto no se toca:
 `DATABASE_URL=postgresql+psycopg://usuario:clave@host:5432/goaltime`. El driver
 (`psycopg`) ya está en `requirements.txt`; no hace falta en desarrollo ni en los tests.
+
+### Con Docker
+
+Hay un `docker-compose.yml` en la raíz del repositorio, con PostgreSQL 16 y la API:
+
+```sh
+cp .env.compose.example .env        # en la raíz, no en backend/
+docker compose up -d --build         # migra y siembra al arrancar
+curl http://127.0.0.1:5000/api/health
+```
+
+PostgreSQL queda en `127.0.0.1:5433` para poder correr la suite y `alembic check`
+contra él:
+
+```sh
+TEST_DATABASE_URL=postgresql+psycopg://goaltime:goaltime-local@127.0.0.1:5433/goaltime_test pytest -q
+```
 
 ## Datos de prueba
 
@@ -74,7 +104,8 @@ vacías a propósito: se agregan los assets antes de las capturas de la entrega.
 | POST | `/api/pagos/webhook` | firma Stripe | ✅ 200 (`aplicado`) · 400 · 413 |
 | GET | `/api/pagos/{id}` | JWT (dueño o admin) | ✅ 200 · 401 · 403 · 404 |
 | POST | `/api/pagos/{id}/simular` | JWT (dueño o admin) | ✅ 200 · 400 · 401 · 403 · 404 — sólo con `PAGADORA=mock` |
-| — | Dueño y Admin | | ⏳ Sesión 5 |
+| — | Gestión del dueño | `/api/gestion/*` (12 endpoints) | ✅ spec.md 3.4 |
+| — | Administración | `/api/usuarios`, `/api/reporte` | ✅ spec.md 3.5 |
 
 ## Pagar sin claves: la pasarela `mock`
 
@@ -122,17 +153,23 @@ curl -s -X POST http://127.0.0.1:5000/api/logout -H "Authorization: Bearer $TOKE
 ## Tests
 
 ```sh
-.venv/bin/python -m pytest -q          # 146 pruebas
+.venv/bin/python -m pytest -q          # toda la suite, sobre SQLite en memoria
+
+# Y la misma suite contra PostgreSQL, que es donde están los tipos que SQLite no aplica:
+TEST_DATABASE_URL=postgresql+psycopg://goaltime:goaltime-local@127.0.0.1:5433/goaltime_test pytest -q
 ```
 
 | Archivo | Qué cubre |
 |---|---|
-| `tests/test_auth.py` | contrato de `spec.md 3.1` (registro, login, token, códigos) |
+| `tests/test_auth.py` | contrato de `spec.md 3.1` (registro, login, token, códigos) y los topes de longitud de los textos |
 | `tests/test_modelos.py` | restricciones de base de datos: `UNIQUE`, `CHECK`, FK y `ondelete=RESTRICT` |
 | `tests/test_canchas.py` | catálogo público: sólo activas, orden, `tarifa_base`, sin `dueno_id` |
 | `tests/test_disponibilidad.py` | ventana de 6 días, día ISO, motivos `ocupado` / `transcurrido`, validaciones |
 | `tests/test_reservas.py` | reserva atómica con su pago, `403`/`422` de rol y de slot, `409` por índice, slot liberado al cancelar, `mis-reservas` |
 | `tests/test_pagos.py` | quién paga, idempotencia, firma HMAC real del webhook, `MAX_CONTENT_LENGTH`, pasarela intercambiable |
+| `tests/test_gestion.py` |Dueño: aislamiento entre canchas, calendario, y el `422` de tarifa |
+| `tests/test_admin.py` | Panel: `403` por rol, conteos, el `422` que no deja degradar a un dueño con canchas, reporte |
+| `tests/test_migraciones.py` | el guardián anti-drift: `upgrade head` construye el esquema de los modelos y `alembic check` detecta una columna sin migración |
 
 Las pruebas de disponibilidad usan fechas futuras para no depender de la hora de
 ejecución; la regla de "slot transcurrido" se verifica con `slot_vencido()` de forma

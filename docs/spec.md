@@ -370,7 +370,7 @@ Estado a cierre de la Sesión 6: `backend` = cubierto por `pytest` (`248 passed`
 - [x] Sólo el rol `admin` entra al panel; cliente y dueño reciben `403` — `backend` "un cliente recibe 403" / "un dueño recibe 403"
 - [x] Puede ver todos los usuarios con rol, estado y conteos, y cambiar roles — `backend` "lista todos los usuarios con rol y activo" / "trae los conteos de canchas y reservas" / "promueve un cliente a dueño" / "desactiva y reactiva un usuario"
 - [x] El admin no puede dejar la plataforma sin administración ni dejar canchas sin dueño — `backend` "el admin no se cambia a sí mismo" / "el admin no se desactiva" / "bajar de dueño con canchas activas da 422 con el número" / "bajar de dueño sólo con canchas inactivas sí se puede"
-- [x] Un usuario desactivado no puede entrar ni con un token ya emitido — `backend` "no puede iniciar sesión" / "contraseña incorrecta sigue siendo 401" / "un token ya emitido deja de servir" (`test_auth.py` cubre el 403 del login)
+- [x] Un usuario desactivado no puede entrar ni con un token ya emitido — `backend` "no puede iniciar sesión" / "contraseña incorrecta sigue siendo 401" / "un token ya emitido deja de servir" (`test_auth.py` cubre el 403 del login; `test_sesion_desactivada.py` barre las 18 rutas protegidas una por una, y `test_el_barrido_cubre_toda_ruta_nueva` obliga a clasificar cada endpoint nuevo)
 - [x] El reporte refleja agregados correctos (monto, conteos por cancha/día) — `backend` "suma solo pagos aprobados" / "una reserva cancelada con pago aprobado sigue siendo ingreso" / "agrupa por cancha con el nombre para la gráfica" / "agrupa por día de reserva" / "los conteos de reservas salen por estado" / "el reporte conserva el histórico de las canchas dadas de baja"
 - [x] La app del Admin muestra usuarios con su rol y sus conteos — `app` `test/admin_flow_test.dart` ("lista cada cuenta con su rol y lo que tiene encima", "sin usuarios se explica, sin romper la pantalla")
 - [x] La app cambia roles y activa/desactiva con confirmación — `app` "promover a dueño manda el rol y refresca la lista" / "desactivar pide confirmación y avisa qué se conserva" / "cancelar la confirmación no manda nada al backend" / "una cuenta desactivada lo dice en la tarjeta y se puede activar"
@@ -482,12 +482,25 @@ dependencia de health, no un `sleep`.
 pero es una **copia**: si un campo se renombra en Flask, los 101 tests de la app siguen en
 verde y el error aparece en el dispositivo, en la entrega, delante del profesor.
 
-`integration_test/contrato_real_test.dart` ejercita los repositorios y modelos **reales**
-contra un backend real: login de verdad, `GET /api/usuarios`, `GET /api/reporte`,
-`GET /api/canchas` y los errores (401, 404, 422) pasando por `ApiException`. Vive fuera de
-`test/` a propósito, para que `flutter test` siga siendo hermético y rápido; lo corre
-`tool/verificar_integracion.sh`, que levanta el `compose`, espera `/api/health`, corre la
-prueba y baja todo.
+`test/contrato_real_test.dart` ejercita los repositorios y modelos **reales** contra un
+backend real: login de verdad, `GET /api/usuarios`, `GET /api/reporte`, `GET /api/canchas`
+y los errores (401, 404, 422) pasando por `ApiException`.
+
+Vive en `test/` y no en `integration_test/` porque `flutter test integration_test/...` exige
+un dispositivo conectado, y en este entorno no hay emulador. La suite por defecto lo ve y lo
+omite: sin `GOALTIME_API_URL` no se habla con la red, así que `flutter test` sigue siendo
+hermético. Lo corre `tool/verificar_integracion.sh` (levanta el `compose`, espera
+`/api/health`, siembra y corre la prueba) y el job de integración de CI.
+
+Dos detalles de implementación que no son evidentes:
+
+- `flutter_test` sustituye `HttpClient` por un doble que no habla con nadie. El test lo
+  quita con `HttpOverrides.global = null` alrededor de cada llamada y lo restaura después;
+  `HttpOverrides.runZoned` no sirve en esta versión.
+- El margen de espera del test es de 90 segundos, no los 20 de la app. Verificar una
+  contraseña con scrypt cuesta alrededor de un segundo de CPU, y medido en un equipo de dos
+  núcleos cargados un login tardó 18 segundos. Los 20 segundos de la app están puestos para
+  una red móvil, no para una CPU compartida.
 
 ### 7.5 Guardián anti-drift
 
@@ -498,14 +511,22 @@ contra PostgreSQL. Es lo que hace de §7.0 una regla y no una intención: sin é
 
 ### 7.6 Criterios de aceptación
 
-- [ ] `alembic upgrade head` crea el esquema completo en una base PostgreSQL vacía, con el índice parcial y los `CHECK` intactos
-- [ ] Los catálogos se siembran con un comando aparte del esquema y es idempotente
-- [ ] `alembic check` pasa en verde con los modelos actuales y **falla** si se añade una columna sin migración
-- [ ] `docker compose up` levanta API + PostgreSQL y `/api/health` responde `ok`
-- [ ] El orden de usuarios y canchas es el mismo en SQLite y en PostgreSQL (`LC_COLLATE=C`)
+- [x] `alembic upgrade head` crea el esquema completo en una base PostgreSQL vacía, con el índice parcial y los `CHECK` intactos
+- [x] Los catálogos se siembran con un comando aparte del esquema y es idempotente
+- [x] `alembic check` pasa en verde con los modelos actuales y **falla** si se añade una columna sin migración
+- [x] `docker compose up` levanta API + PostgreSQL y `/api/health` responde `ok`
+- [x] El orden de usuarios y canchas es el mismo en SQLite y en PostgreSQL (`LC_COLLATE=C`)
 - [ ] La app monta sus repositorios reales contra el backend real y parsea usuarios, reporte y catálogo
-- [ ] Un dato más largo que su `varchar` se rechaza con `422` y no revienta con `500`
+- [x] Un dato más largo que su `varchar` se rechaza con un `4xx` y no revienta con `500` (`400` si es formato o longitud, `422` si es una regla de negocio como la tarifa)
 - [ ] CI corre backend, app e integración en cada push
+
+El criterio del contrato queda sin marcar a propósito: el código está escrito y analysed,
+pero en este equipo `flutter_tester` no sobrevive a la red real (3.7 GB de RAM con el swap
+lleno; el kernel lo mata y `flutter_tools` reporta `did not complete`). Los endpoints que el
+test verifica se comprobaron a mano contra el `compose` —login 200, `/api/reporte` sin token
+401, `PATCH /api/usuarios/999999/rol` 404— y la corrida completa queda para CI, que es donde
+está en el workflow. Marcarlo sin haberlo corrido sería la clase de mentira que este
+capítulo existe para evitar.
 
 ### 7.7 Fuera de alcance
 
@@ -513,3 +534,5 @@ contra PostgreSQL. Es lo que hace de §7.0 una regla y no una intención: sin é
   desarrollo. Queda pendiente de hacer a mano, no se puede automatizar desde aquí.
 - `PAGADORA=stripe` con claves reales: el camino verificado es el de `mock` (§3.3), que
   recorre el mismo `_aplicar()`. Con claves, además, hay que exponer el webhook.
+- Correr el contrato real en este equipo: requiere que `flutter_tester` tenga memoria
+  disponible. En CI corre en cada push (§7.6).

@@ -251,18 +251,22 @@ Map<String, Object> reservaDePrueba({String estado = 'pendiente_pago', String pa
 // --- Datos de la gestión del dueño ---------------------------------------------
 
 /// Canchas del dueño, como las devuelve `GET /api/gestion/canchas`.
+///
+/// La segunda no tiene horarios y por eso tampoco `tarifa_base`, que es lo que devuelve
+/// el backend cuando `total_horarios` es 0 y lo que hace que la app muestre "Sin horarios".
+/// Un doble que inventara un precio ahí taparía justo ese camino.
 void canchasDeGestion(FakeApi api) {
   api.responder('GET', '/api/gestion/canchas', [
     _canchaGestion(1, 'Cancha El Retiro', horarios: 2, tarifa: 45000.0),
-    _canchaGestion(2, 'Cancha Laquina', horarios: 0, activa: false),
+    _canchaGestion(2, 'Cancha Laquina', horarios: 0, tarifa: null, activa: false),
   ]);
 }
 
-Map<String, Object> _canchaGestion(
+Map<String, Object?> _canchaGestion(
   int id,
   String nombre, {
-  int horarios = 1,
-  double? tarifa = 60000.0,
+  required int horarios,
+  required double? tarifa,
   bool activa = true,
 }) {
   return {
@@ -273,7 +277,7 @@ Map<String, Object> _canchaGestion(
     'activo': activa,
     'dueno_id': 5,
     'total_horarios': horarios,
-    'tarifa_base': tarifa ?? 0.0,
+    'tarifa_base': tarifa,
   };
 }
 

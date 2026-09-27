@@ -46,11 +46,6 @@ class UsuarioAdmin {
     RolUsuario.dueno => 'Dueño',
     RolUsuario.cliente => 'Cliente',
   };
-
-  /// `true` si el backend puede devolverle `422` por tener canchas activas: la app avisa
-  /// antes de que el usuario lo descubra en un error, pero la decisión sigue siendo del
-  /// backend (HEUR-5).
-  bool get tieneCanchasActivas => canchas > 0;
 }
 
 enum RolUsuario {

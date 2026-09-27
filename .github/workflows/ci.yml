@@ -1,0 +1,192 @@
+# Verificación en cada push (spec.md 7.6).
+#
+# Tres jobs y no uno porque fallan de maneras distintas y se arreglan distinto:
+#
+# - `backend`: la API con SQLite, rápido, sin infraestructura.
+# - `backend-postgres`: lo mismo contra PostgreSQL de verdad. Es el job que encuentra las
+#   diferencias que SQLite esconde: tipos que no se aplican, orden por collation, índices
+#   parciales. También corre `alembic check`, que en SQLite no compara `server_default`.
+# - `app`: `flutter analyze` y la suite, que no habla con la red.
+# - `integracion`: el contrato real de la app contra el backend de PostgreSQL, con las
+#   variables de entorno que lo activan.
+#
+# Los cuatro usan la matriz de versiones declarada en `requirements.txt` y en `pubspec.yaml`,
+# no versiones sueltas escritas aquí: un CI que pasa con una versión que nadie usa no
+# verifica el despliegue.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # Un push nuevo hace inútil el trabajo del commit anterior. Cancelarlo ahorra minutos de
+  # runner, que es el recurso escaso.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  backend:
+    name: Backend (SQLite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Instalar dependencias
+        working-directory: backend
+        run: pip install -r requirements.txt
+      - name: Tests
+        working-directory: backend
+        # SQLite temporal por sesión: el job no depende de Docker ni de ningún servicio.
+        run: pytest -q
+
+  backend-postgres:
+    name: Backend (PostgreSQL, migraciones y anti-drift)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          # La misma configuración de locale que el `docker-compose.yml`. Con un locale
+          # distinto, el orden de las listas en CI sería otro y las comparaciones de
+          # este job no valdrían para el despliegue.
+          POSTGRES_USER: goaltime
+          POSTGRES_PASSWORD: goaltime-local
+          POSTGRES_DB: goaltime_test
+          POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U goaltime -d goaltime_test"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      # `DATABASE_URL` para los comandos de Alembic, que migran la base de verdad.
+      DATABASE_URL: postgresql+psycopg://goaltime:goaltime-local@127.0.0.1:5432/goaltime_test
+      # `TEST_DATABASE_URL` para `pytest`: la fixture de tests usa esta, y por debajo es la
+      # misma base. Sin ella la suite correría sobre SQLite y este job sería decorativo.
+      TEST_DATABASE_URL: postgresql+psycopg://goaltime:goaltime-local@127.0.0.1:5432/goaltime_test
+      JWT_SECRET_KEY: clave-de-ci-suficientemente-larga-para-el-jwt
+      PAGADORA: mock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Instalar dependencias
+        working-directory: backend
+        run: pip install -r requirements.txt
+      - name: Las migraciones levantan el esquema desde cero
+        working-directory: backend
+        run: |
+          alembic upgrade head
+          alembic current
+      - name: "alembic check no encuentra diferencias"
+        working-directory: backend
+        # El guardián de §7.5. Si esto falla, un `db.Column` se agregó sin migración.
+        run: alembic check
+      - name: Tests
+        working-directory: backend
+        # Contra PostgreSQL, no contra SQLite: es el job que atrapa los varchar que no se
+        # aplican, el `Numeric(10,2)` que acepta de más y el orden por collation.
+        run: pytest -q
+
+  app:
+    name: App (analyze + tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.5
+          cache: true
+      - name: Dependencias
+        run: flutter pub get
+      - name: Analyze
+        # `--fatal-infos` para que un lint nuevo también rompa el CI: la suite entera es
+        # de estilo cerrado (lints del `analysis_options.yaml`) y un aviso ignorado es
+        # una deuda que se acumula en silencio.
+        run: flutter analyze --fatal-infos
+      - name: Tests
+        # Sin `GOALTIME_API_URL`, el contrato real se omite: la suite no habla con la red
+        # ni necesita Docker. Ese trabajo es del job de abajo.
+        run: flutter test
+
+  integracion:
+    name: Contrato app ↔ backend real
+    runs-on: ubuntu-latest
+    needs: [backend-postgres]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: goaltime
+          POSTGRES_PASSWORD: goaltime-local
+          POSTGRES_DB: goaltime
+          POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U goaltime -d goaltime"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.5
+          cache: true
+      - name: Dependencias de la app
+        run: flutter pub get
+      - name: Dependencias del backend
+        working-directory: backend
+        run: pip install -r requirements.txt
+      - name: Levantar la API contra PostgreSQL
+        env:
+          DATABASE_URL: postgresql+psycopg://goaltime:goaltime-local@127.0.0.1:5432/goaltime
+          JWT_SECRET_KEY: clave-de-ci-suficientemente-larga-para-el-jwt
+          PAGADORA: mock
+        working-directory: backend
+        run: |
+          alembic upgrade head
+          # Arranca en segundo plano, igual que en producción pero con gunicorn.
+          nohup gunicorn --bind 127.0.0.1:5000 --workers 2 --timeout 120 \
+            --access-logfile - app:app > /tmp/api.log 2>&1 &
+          for i in $(seq 1 45); do
+            if curl -fsS --max-time 5 http://127.0.0.1:5000/api/health > /dev/null; then
+              echo "API lista"; break
+            fi
+            sleep 2
+          done
+          curl -fsS --max-time 5 http://127.0.0.1:5000/api/health
+          # Datos de prueba: sin ellos el contrato no tiene contra qué compararse.
+          flask seed
+      - name: Logs de la API si algo falla
+        if: failure()
+        run: cat /tmp/api.log
+      - name: Contrato
+        env:
+          # Sin esta variable los tests se omiten en silencio, y un job verde que no
+          # comprobó nada es peor que un job rojo.
+          GOALTIME_API_URL: http://127.0.0.1:5000
+        run: flutter test test/contrato_real_test.dart
