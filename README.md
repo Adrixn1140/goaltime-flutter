@@ -33,6 +33,7 @@ contrato de construcción (no de migración).
 
 - [`docs/spec.md`](docs/spec.md) — Especificación *spec-driven*: contrato de API, catálogos, restricciones y criterios de aceptación
 - [`docs/heuristics.md`](docs/heuristics.md) — Evaluación heurística (Nielsen) + guía de diseño trazable
+- [`docs/ESTADO.md`](docs/ESTADO.md) — Qué está construido y qué está comprobado, con la evidencia de verificación y los huecos conocidos
 - [`backend/README.md`](backend/README.md) — Cómo correr la API, variables de entorno y datos de prueba
 
 ## Estructura
@@ -67,6 +68,7 @@ tool/           verificar_integracion.sh: backend real + contrato de la app
 - [x] Módulo Admin (usuarios, reporte)
 - [x] Esquema con Alembic y contenedores (`docker compose` con PostgreSQL 16 y gunicorn)
 - [x] Verificación en cada push: backend, PostgreSQL con migraciones y anti-drift, app y contrato app ↔ backend real
+- [x] Una cuenta desactivada no conserva la sesión: un test parametrizado barre las 18 rutas protegidas, y `logout` es la única excepción deliberada
 - [ ] Capturas de la app en dispositivo real
 
 ## Ejecutar el backend
@@ -120,6 +122,10 @@ cd backend && pytest -q   # 278 pruebas del backend (las mismas contra PostgreSQ
 # El contrato de la app contra el backend real (levanta Docker, migra, siembra y baja):
 tool/verificar_integracion.sh
 ```
+
+Todo eso en verde por última vez el **26 de septiembre de 2026**, con los cuatro jobs
+del CI en `main`. El detalle de qué se comprobó y con qué cifras, en
+[`docs/ESTADO.md`](docs/ESTADO.md#evidencia-de-verificación).
 
 Las pruebas de widget no tocan la red: `test/support/fake_api.dart` monta un `Dio` con un
 adaptador propio que responde con el mismo JSON del backend, y la sesión se guarda en un
