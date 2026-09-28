@@ -14,7 +14,7 @@ from flask import Blueprint, g, jsonify, request
 from sqlalchemy.exc import IntegrityError
 
 from auth_helpers import con_rol
-from blueprints.disponibilidad import parse_fecha, slot_vencido
+from dominio.disponibilidad import parse_fecha, slot_vencido
 from errors import error_response
 from extensions import db
 from models import (

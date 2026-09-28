@@ -20,7 +20,7 @@ from sqlalchemy import func, true
 from sqlalchemy.exc import IntegrityError
 
 from auth_helpers import con_rol, dueno_o_admin
-from blueprints.disponibilidad import parse_hora
+from dominio.disponibilidad import parse_hora
 from errors import error_response
 from extensions import db
 from limites import FOTO, NOMBRE, TARIFA_MAXIMA, UBICACION

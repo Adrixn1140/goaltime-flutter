@@ -8,7 +8,7 @@ from datetime import date, datetime, time, timedelta
 
 import pytest
 
-from blueprints.disponibilidad import (
+from dominio.disponibilidad import (
     DIAS_VENTANA,
     MOTIVO_OCUPADO,
     MOTIVO_TRANSCURRIDO,
