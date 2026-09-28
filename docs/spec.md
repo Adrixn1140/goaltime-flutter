@@ -309,6 +309,68 @@ GET  /api/reporte               → agregados para gráficas (ingresos, reservas
 | 404 | `PATCH` sobre un id de usuario que no existe |
 | 422 | Admin cambiándose a sí mismo; bajar de dueño con canchas activas |
 
+### 3.6 Asistente de reserva por lenguaje natural
+
+**Estado: especificado, no implementado.** Esta sección existe porque en este proyecto el
+contrato se escribe antes que el código; la implementación y su verificación están en
+[`PLAN.md`](PLAN.md) fases A y B. **Nada de lo que se describe aquí corre todavía.**
+
+```
+POST /api/asistente    → respuesta redactada + sugerencias de reserva
+```
+
+```json
+// cuerpo
+{ "mensaje": "quiero jugar mañana en la noche" }
+
+// respuesta
+{
+  "respuesta": "Mañana por la noche hay dos canchas libres.",
+  "sugerencias": [
+    { "cancha_id": 1, "cancha": "Las Palmeras", "fecha": "2026-09-28",
+      "horario_id": 4, "hora_inicio": "18:00", "hora_fin": "19:00", "tarifa": 45000.0 }
+  ],
+  "motor": "mock"
+}
+```
+
+**Reglas de esta sección**
+- Sólo el rol `cliente` entra aquí: un `dueño` o un `admin` reciben `403`. El asistente
+  reserva en nombre de quien pregunta, y quien pregunta es un cliente.
+- **La llave del LLM no sale del backend** (§7.2). La app habla con `/api/asistente` y
+  nunca con el proveedor: una llave embebida en un APK es una llave pública.
+- El modelo **no ve la base de datos**. Decide qué herramienta llamar, la herramienta se
+  ejecuta contra PostgreSQL, y el resultado vuelve al modelo para redactarlo. Lo que sale
+  en `sugerencias` son **slots reales**, con su `horario_id`.
+- El asistente **no reserva ni paga**. Sugiere; quien confirma es la persona, pulsando un
+  botón que lleva a `POST /api/reservas` (§3.2), que es la única vía que reserva. Así el
+  alcance se puede recortar sin dejar la app a medias.
+- El motor se elige con `LLM_PROVEEDOR` detrás de la interfaz `MotorLLM`, **espejando
+  `PasarelaPago` de §3.3**. `mock` responde sin red: es lo que permite probar el endpoint
+  en CI y lo que impide que una prueba dependa de un servicio de terceros.
+
+**Herramienta que se expone al modelo**
+
+| Parámetro | Tipo | Qué hace |
+|---|---|---|
+| `cancha` | texto | nombre o parte del nombre; **el backend lo resuelve a un `Cancha.id`** |
+| `fecha` | `YYYY-MM-DD` | dentro de la ventana de 6 días de §3.2 |
+| `franja` | `mañana` \| `tarde` \| `noche` \| `cualquiera` | filtro de §3.2 |
+
+`cancha` es texto y no un id a propósito: el modelo no conoce identificadores, y pedirle
+uno lo invitaría a inventarlo en lugar de pedir aclaración. Que lo resuelva el backend es
+lo que hace que la sugerencia sea real y no una alucinación con forma de cita.
+
+#### Errores de §3.6
+
+| Código | Cuándo |
+|---|---|
+| 400 | `mensaje` ausente, vacío o que no es texto |
+| 401 | Token ausente o vencido |
+| 403 | Rol distinto de `cliente` |
+| 422 | Fecha fuera de la ventana de 6 días, o `franja` que no existe |
+| 502 | El proveedor del LLM no respondió, o respondió algo que no se pudo interpretar |
+
 ## 4. Códigos de error comunes
 
 | Código | Significado |
@@ -320,6 +382,11 @@ GET  /api/reporte               → agregados para gráficas (ingresos, reservas
 | 409 | Conflicto (slot ya ocupado, email en uso) |
 | 422 | Regla de negocio violada (ej. fecha pasada) |
 | 500 | Error de servidor — la app muestra estado genérico |
+| 502 | Un servicio de terceros no respondió (§3.6, el proveedor del LLM) |
+
+`502` está separado de `500` a propósito: un `500` es un fallo de este código y merece una
+corrección, mientras que un `502` es un proveedor externo que no respondió, se arregla
+reintentando y la app debe poder ofrecerlo sin que el usuario piense que perdió su sesión.
 
 **Formato de error (único para toda la API)**, para que el mapeo en Flutter sea trivial:
 
@@ -394,6 +461,11 @@ primero, el test después):
 | Roles | unit + integración: `dueno_id` derivado del token, admin sin filtro | unit: `AuthNotifier` y mapeo de rol |
 | Admin | integración: `test_admin.py` (403 por rol, guardas de autoprotección, agregados del reporte) | widget: `test/admin_flow_test.dart` (lista, cambio de rol, deactivate, reporte) |
 | Contrato | — | unit: `models_test.dart` (enums y campos anidados) y `format_test.dart` (fechas, moneda, cuerpo del POST) |
+| Asistente IA (§3.6) | **aún sin tests** — `test_asistente.py` está en [`PLAN.md`](PLAN.md) fase A | **aún sin tests** — `asistente_flow_test.dart` en fase B |
+
+La fila del asistente está vacía a propósito, y no es un olvido: §3.6 no está implementado,
+así que la trazabilidad spec → test **no puede cerrarse todavía**. Dejarla escrita por
+adelantado sería una afirmación falsa; se rellena en la misma commit que los escriba.
 
 Los tests de widget usan `test/support/fake_api.dart`: un `Dio` con el mismo
 `crearApiClient` de producción (base URL, timeouts e interceptor de token) y sólo el
@@ -462,6 +534,13 @@ Las mismas variables de §3.0, con tres exigencias adicionales:
 | `CORS_ORIGINS` | `*` | dominios reales | HEUR-5: no abrir más superficie de la necesaria |
 | `PAGADORA` | `mock` | `stripe` | §3.3 |
 | `APP_URL_BASE` | `localhost:5000` | dominio público | de aquí salen las URLs de retorno de Stripe |
+| `LLM_PROVEEDOR` | `mock` | `ollama` o `gemini` | §3.6, el mismo mecanismo que `PAGADORA` |
+| `GEMINI_API_KEY` | vacía | **obligatoria si `LLM_PROVEEDOR=gemini`** | §3.6: nunca viaja en la app, un APK es público |
+| `OLLAMA_URL` | `http://127.0.0.1:11434` | host del servidor | motor local |
+| `OLLAMA_MODELO` | `qwen2.5:1.5b` | el que se despliegue | debe sostener function calling |
+
+Las cuatro de abajo son **especificadas y no usadas todavía** (§3.6 no está implementado).
+Se documentan aquí para que quien monte el despliegue no las descubra por sorpresa.
 
 ### 7.3 Despliegue
 
