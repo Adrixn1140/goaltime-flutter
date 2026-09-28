@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/asistente_ia/presentation/asistente_screen.dart';
 import '../../features/auth/auth_state.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/cliente/presentation/canchas_screen.dart';
@@ -69,9 +70,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const CanchasScreen(),
           ),
           GoRoute(
+            path: '/cliente/asistente',
+            builder: (context, state) => const AsistenteScreen(),
+          ),
+          GoRoute(
             path: '/cliente/canchas/:id/reserva',
-            builder: (context, state) =>
-                PantallaReserva(canchaId: int.parse(state.pathParameters['id']!)),
+            builder: (context, state) => PantallaReserva(
+              canchaId: int.parse(state.pathParameters['id']!),
+              // Preselección desde el asistente: `fecha` y `horario_id` son opcionales
+              // y llegan por query. Sin ellos (entra desde el catálogo) la pantalla
+              // se comporta igual que siempre.
+              fecha: state.uri.queryParameters['fecha'],
+              horarioId: int.tryParse(state.uri.queryParameters['horario_id'] ?? ''),
+            ),
           ),
           GoRoute(
             path: '/cliente/mis-reservas',

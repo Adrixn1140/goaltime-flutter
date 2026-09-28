@@ -19,9 +19,15 @@ import 'widgets/slot_tile.dart';
 /// el backend: mostrarlo antes de enviar evita el "esto no era lo que pensé" (HEUR-5,
 /// HEUR-8). El monto que se confirma es el mismo que el backend cobra.
 class PantallaReserva extends ConsumerStatefulWidget {
-  const PantallaReserva({super.key, required this.canchaId});
+  const PantallaReserva({super.key, required this.canchaId, this.fecha, this.horarioId});
 
   final int canchaId;
+
+  /// Preselección desde el asistente (`fecha` y `horario_id`): el la pantalla abre en
+  /// ese día con ese horario marcado. Ambos son opcionales: entrando desde el catálogo
+  /// la pantalla se comporta igual que siempre.
+  final String? fecha;
+  final int? horarioId;
 
   @override
   ConsumerState<PantallaReserva> createState() => _PantallaReservaState();
@@ -32,6 +38,13 @@ class _PantallaReservaState extends ConsumerState<PantallaReserva> {
   int? _horarioId;
   bool _reservando = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _dia = widget.fecha;
+    _horarioId = widget.horarioId;
+  }
 
   @override
   Widget build(BuildContext context) {

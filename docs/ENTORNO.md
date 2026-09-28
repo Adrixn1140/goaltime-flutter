@@ -461,6 +461,15 @@ No son hipótesis: pasó cada una de estas durante el trabajo.
    español, `"Zuleima"` se ordena después de `"ana"` en PostgreSQL, y en SQLite no. La
    base se inicializa con `LC_COLLATE=C` por eso, y si se crea a mano sin eso, el orden
    de los catálogos no coincide con el que verifica el CI.
+9. **La prueba real de Gemini se acaba sola.** El free tier de Google limita a **20
+   peticiones al día por modelo y proyecto** (`generate_content_free_tier_requests`) y
+   el reset es a medianoche hora del Pacífico. Cada frase del asistente gasta dos
+   llamadas (interpretar + redactar), así que con cuatro frases de prueba se agotó el
+   cupo de `gemini-3.6-flash` y de `gemini-3.8-flash` el mismo día. No es un fallo del
+   código: es el techo del plan gratis. El contenedor de Docker **corre `mock` por
+   diseño**: `.dockerignore` excluye `backend/.env` y `docker compose` no inyecta las
+   variables `LLM_*`, así que para probar un proveedor real no se toca el compose, se
+   usa un proceso `flask` local con `backend/.env` —o `app.test_client()` in-process—.
 
 ## Qué de este documento no está verificado
 

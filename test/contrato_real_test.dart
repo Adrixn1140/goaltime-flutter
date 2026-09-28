@@ -38,6 +38,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:goaltime_flutter/core/network/api_client.dart';
 import 'package:goaltime_flutter/core/network/api_exception.dart';
 import 'package:goaltime_flutter/core/storage/token_storage.dart';
+import 'package:goaltime_flutter/features/asistente_ia/data/asistente_repository.dart';
 import 'package:goaltime_flutter/features/auth/data/auth_repository.dart';
 import 'package:goaltime_flutter/features/cliente/data/canchas_repository.dart';
 import 'package:goaltime_flutter/features/cliente/data/models.dart';
@@ -295,6 +296,46 @@ void main() {
 
       expect(error!.codigo, 400);
       expect(error.mensaje, contains('180'));
+    });
+
+    test('el asistente responde el contrato: respuesta, sugerencias y motor', () async {
+      if (sinBackend) return _omitir();
+
+      // El endpoint pide rol cliente; el resto del grupo entra como admin, así que hay
+      // que iniciar sesión de nuevo (spec.md 3.6).
+      final sesion = await conRedReal(
+        () => auth.login(email: 'cliente@goaltime.test', password: 'Goaltime123!'),
+      );
+      expect(sesion.rol, 'cliente');
+
+      final asistente = AsistenteRepository(dio);
+      final respuesta = await conRedReal(
+        () => asistente.consultar(mensaje: 'hola'),
+      );
+
+      // Un saludo no dispara la herramienta: no toca la base, y por eso las sugerencias
+      // vienen vacías y no vacías. Lo que nunca puede ser es `null`, o el modelo de la app
+      // reventaría al tratar la respuesta como lista (spec.md 3.6).
+      expect(respuesta.respuesta, isNotEmpty);
+      expect(respuesta.sugerencias, isNotNull);
+      const motores = {'mock', 'ollama', 'gemini'};
+      expect(
+        motores,
+        contains(respuesta.motor),
+        reason: 'la app no tiene UI para un proveedor nuevo',
+      );
+
+      // Si el mensaje encontró horarios, cada sugerencia tiene que traer el `horario_id`
+      // real: es lo que la confirmación manda a `POST /api/reservas`. Si el backend
+      // renombrara un campo, `fromJson` aquí lo sabría.
+      for (final sugerencia in respuesta.sugerencias) {
+        expect(sugerencia.canchaId, greaterThan(0));
+        expect(sugerencia.cancha, isNotEmpty);
+        expect(sugerencia.fecha, matches(RegExp(r'^\d{4}-\d{2}-\d{2}$')));
+        expect(sugerencia.horarioId, greaterThan(0));
+        expect(sugerencia.rango, matches(RegExp(r'^\d{2}:\d{2} – \d{2}:\d{2}$')));
+        expect(sugerencia.tarifa, greaterThan(0));
+      }
     });
   });
 }

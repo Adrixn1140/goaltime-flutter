@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// Shell del rol Cliente: bottom navigation con las 3 secciones.
+/// Shell del rol Cliente: bottom navigation con las 4 secciones.
 ///
 /// HEUR-6: el usuario reconoce su rol; solo ve las acciones que puede hacer.
 class ClienteShell extends StatelessWidget {
@@ -23,6 +23,11 @@ class ClienteShell extends StatelessWidget {
             label: 'Canchas',
           ),
           NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline),
+            selectedIcon: Icon(Icons.chat_bubble),
+            label: 'Asistente',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.event_note_outlined),
             selectedIcon: Icon(Icons.event_note),
             label: 'Mis reservas',
@@ -39,16 +44,19 @@ class ClienteShell extends StatelessWidget {
 
   int _indexFor(BuildContext context) {
     final loc = GoRouterState.of(context).uri.path;
-    if (loc.startsWith('/cliente/mis-reservas')) return 1;
-    if (loc.startsWith('/cliente/perfil')) return 2;
+    if (loc.startsWith('/cliente/asistente')) return 1;
+    if (loc.startsWith('/cliente/mis-reservas')) return 2;
+    if (loc.startsWith('/cliente/perfil')) return 3;
     return 0;
   }
 
   void _goTo(BuildContext context, int index) {
     switch (index) {
       case 1:
-        context.go('/cliente/mis-reservas');
+        context.go('/cliente/asistente');
       case 2:
+        context.go('/cliente/mis-reservas');
+      case 3:
         context.go('/cliente/perfil');
       default:
         context.go('/cliente/canchas');

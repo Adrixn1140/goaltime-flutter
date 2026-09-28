@@ -416,3 +416,41 @@ void adminDePrueba(FakeApi api) {
   usuariosDeAdmin(api);
   reporteDeAdmin(api);
 }
+
+// --- Datos del asistente ------------------------------------------------------------
+
+/// Respuesta de `POST /api/asistente` con una sugerencia, como la trae el backend cuando
+/// la búsqueda encontró horarios (spec.md 3.6).
+///
+/// La sugerencia apunta a la cancha 1 y a un `horario_id` que existe en
+/// [disponibilidadDePrueba] (el 12, de mañana), para que el flujo
+/// "sugerencia → reserva" pueda continuar hasta la pantalla de reserva sin romperse en
+/// un id fantasma.
+void asistenteDePrueba(FakeApi api) {
+  api.responder('POST', '/api/asistente', {
+    'respuesta': 'Mañana hay un horario libre en Cancha El Retiro.',
+    'sugerencias': [
+      {
+        'cancha_id': 1,
+        'cancha': 'Cancha El Retiro',
+        'fecha': _manana(),
+        'horario_id': 12,
+        'hora_inicio': '08:00',
+        'hora_fin': '10:00',
+        'tarifa': 65000.0,
+      },
+    ],
+    'motor': 'mock',
+  });
+}
+
+/// Respuesta de saludo: el backend no dispara la herramienta y devuelve `sugerencias: []`
+/// (spec.md 3.6). Se registra aparte para que el test que quiera probar ese camino lo use
+/// en lugar de la respuesta con sugerencias.
+void asistenteSaludo(FakeApi api) {
+  api.responder('POST', '/api/asistente', {
+    'respuesta': 'Hola. Dime qué quieres reservar y te busco canchas libres.',
+    'sugerencias': <Object>[],
+    'motor': 'mock',
+  });
+}

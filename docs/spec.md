@@ -311,10 +311,13 @@ GET  /api/reporte               → agregados para gráficas (ingresos, reservas
 
 ### 3.6 Asistente de reserva por lenguaje natural
 
-**Estado: implementado en el backend, verificado con 22 tests.** La parte de Flutter es
-la fase B de [`PLAN.md`](PLAN.md) y no existe todavía. Corre con `LLM_PROVEEDOR=mock` por
-omisión, y los proveedores reales (`ollama`, `gemini`) están escritos pero su integración
-con un servicio vivo no se ha probado.
+**Estado: implementado en backend y app (28 sep 2026).** El backend está verificado con 43
+tests (`test_motores_gemini.py` + `test_asistente.py`) y la app con `asistente_flow_test.dart`.
+Corre con `LLM_PROVEEDOR=mock` por omisión; `gemini` está conectado y su integración viva se
+probó parcialmente el 28 sep (un saludo respondió `motor=gemini` y una petición disparó la
+herramienta con una consulta correcta a la base), quedando la vuelta completa pendiente por la
+cuota diaria del free tier. El modelo por omisión es `gemini-3.6-flash`, configurable con
+`GEMINI_MODELO`.
 
 ```
 POST /api/asistente    → respuesta redactada + sugerencias de reserva
@@ -484,11 +487,11 @@ primero, el test después):
 | Roles | unit + integración: `dueno_id` derivado del token, admin sin filtro | unit: `AuthNotifier` y mapeo de rol |
 | Admin | integración: `test_admin.py` (403 por rol, guardas de autoprotección, agregados del reporte) | widget: `test/admin_flow_test.dart` (lista, cambio de rol, deactivate, reporte) |
 | Contrato | — | unit: `models_test.dart` (enums y campos anidados) y `format_test.dart` (fechas, moneda, cuerpo del POST) |
-| Asistente IA (§3.6) | **aún sin tests** — `test_asistente.py` está en [`PLAN.md`](PLAN.md) fase A | **aún sin tests** — `asistente_flow_test.dart` en fase B |
+| Asistente IA (§3.6) | integración: `test_motores_gemini.py` (los dos motores, reintentos, errors) + `test_asistente.py` (la herramienta consulta la base, saludo sin sugerencias) | widget: `asistente_flow_test.dart` (mensaje → tarjeta → preselección → confirmar, saludo, caída del proveedor) + `contrato_real_test.dart` (forma de la respuesta contra la API real) |
 
-La fila del asistente está vacía a propósito, y no es un olvido: §3.6 no está implementado,
-así que la trazabilidad spec → test **no puede cerrarse todavía**. Dejarla escrita por
-adelantado sería una afirmación falsa; se rellena en la misma commit que los escriba.
+La fila del asistente estuvo vacía hasta la fase B de [`PLAN.md`](PLAN.md): §3.6 no estaba
+implementado y la trazabilidad spec → test **no puede cerrarse con una afirmación falsa**.
+Se rellenó el 28 de septiembre, en la misma commit que implementa el asistente.
 
 Los tests de widget usan `test/support/fake_api.dart`: un `Dio` con el mismo
 `crearApiClient` de producción (base URL, timeouts e interceptor de token) y sólo el

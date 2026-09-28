@@ -229,9 +229,24 @@ en `dominio/disponibilidad.py` y en §3.6 de la spec.
 documentada como decisión 6 en `ESTADO.md`: por eso el caso nuevo entra **también** en
 `contrato_real_test.dart`, que es lo único que vigila que esa copia no se desincronice.
 
-- [ ] `flutter test` verde y `flutter analyze --fatal-infos` sin issues
-- [ ] `asistente_flow_test.dart`: mensaje → opciones → confirmar
-- [ ] El caso de contrato entra en `contrato_real_test.dart` (sólo CI)
+- [x] `flutter test` verde y `flutter analyze --fatal-infos` sin issues → **105 pasan**
+- [x] `asistente_flow_test.dart`: mensaje → opciones → confirmar
+- [x] El caso de contrato entra en `contrato_real_test.dart` (sólo CI)
+- [ ] El contrato entra al CI verde (depende de la fase F)
+
+**Lo que se decidió construyendo.** La UI es un chat en burbujas (`asistente_screen.dart`)
+y las sugerencias viajan como tarjetas con botón *Reservar* que navegan a la reserva con
+`?fecha=...&horario_id=...`. Ese query params es nuevo: `PantallaReserva(canchaId)`. La ruta
+de reserva ahora acepta `fecha` y `horario_id` opcionales para preseleccionar el horario
+que el asistente sugirió, y sin ellos se comporta igual que antes (desde el catálogo).
+El asistente **no reserva ni cobra**: presentar es `GET/POST /api/asistente` y confirmar es
+`POST /api/reservas`, como manda §3.6. El plan no lo decía y se decidió por el flujo.
+
+**Pendiente de la fase B (no del código).** La prueba real con Gemini en el servidor
+funcionó parcialmente el 28 sep —saludo `motor=gemini` y una vuelta con `functionCall`— y
+el resto quedó bloqueado por la cuota del free tier (`generate_content_free_tier_requests`,
+20 peticiones/día/modelo). Que el precio fuera corto no era el problema: era que la prueba
+necesita **dos** llamadas por frase. Se reanuda el día siguiente del reset (medianoche PT).
 
 ### Fase C₂ — APK de entrega
 

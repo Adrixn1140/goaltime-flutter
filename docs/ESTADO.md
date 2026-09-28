@@ -53,8 +53,8 @@ Todo lo de esta tabla se ejecutó, no se dedujo. La corrida de CI citada es
 | `pytest` sobre PostgreSQL 16 | **278 pasan** (17m50s) |
 | `alembic check` contra PostgreSQL | `No new upgrade operations detected` |
 | `flutter analyze --fatal-infos` | sin issues |
-| `flutter test` | **101 pasan**, 9 de contrato real omitidos sin red |
-| `contrato real` contra la API en CI | **9 pasan** |
+| `flutter test` | **105 pasan**, 10 de contrato real omitidos sin red |
+| `contrato real` contra la API en CI | **10 pasan** |
 | CI en `main` | **4 de 4 jobs en verde** |
 | `flutter build apk --debug` | **BUILD SUCCESSFUL in 31m11s** (28 sep) |
 | APK con `aapt2` y `apksigner` | `com.goaltime.goaltime_flutter` 1.0.0 · target 36 · 3 ABIs · firmado |
@@ -83,7 +83,7 @@ lo mismo que haberlo probado:** todavía no se instaló ni se ejecutó, que es e
 | `test_canchas.py` | 8 | Catálogo público |
 | `test_migraciones.py` | 3 | Guardián anti-drift: `alembic check` pasa y también falla |
 
-### App: 101 tests + 9 de contrato real
+### App: 105 tests + 10 de contrato real
 
 | Archivo | Tests | Qué cubre |
 |---|---|---|
@@ -94,8 +94,9 @@ lo mismo que haberlo probado:** todavía no se instaló ni se ejecutó, que es e
 | `auth_flow_test.dart` | 8 | Validación, sesión guardada, login, registro, logout |
 | `mis_reservas_flow_test.dart` | 6 | Historial, pago pendiente y reintento tras rechazo |
 | `reserva_flow_test.dart` | 6 | Catálogo, tira de días, confirmación de la reserva |
+| `asistente_flow_test.dart` | 4 | Asistente: respuesta, sugerencia → reserva, saludo y caída del proveedor |
 | `sesion_expirada_test.dart` | 5 | Un `401` con token cierra la sesión y vuelve al login |
-| `contrato_real_test.dart` | 9 | **Sólo en CI.** Repositorios reales contra una API real |
+| `contrato_real_test.dart` | 10 | **Sólo en CI.** Repositorios reales contra una API real |
 
 ## Decisiones que conviene conocer
 
