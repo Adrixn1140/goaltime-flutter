@@ -54,26 +54,70 @@ texto.
 
 ### 2.1 La landmine: `-Xmx8G` en una máquina de 3.7 GB
 
-**inferido.** `android/gradle.properties` trae el valor por defecto del template de Flutter:
+**Verificado el 27 de septiembre de 2026.** `android/gradle.properties` traía el valor por
+defecto del template de Flutter:
 
 ```properties
 org.gradle.jvmargs=-Xmx8G -XX:MaxMetaspaceSize=4G -XX:ReservedCodeCacheSize=512m
 ```
 
-Pide 8 GB de heap en una caja que tiene 3.7 GB. Sumado al daemon de Kotlin, que pide su
-propia memoria, el build **no tiene cómo pasar**: el JVM crece hasta que el OOM-killer del
-kernel lo mata, o entra en swap y se cuelga. El archivo **está versionado**, así que el
-problema lo hereda cualquiera que clone el repo en una máquina modesta.
-
-El arreglo es bajarlo a algo que quepa, del orden de `-Xmx1536m`:
+Pedia 8 GB de heap en una caja que tiene 3.7 GB. Como el archivo **está versionado**, el
+problema lo heredaba cualquiera que clone el repo en una máquina modesta. Bajado a lo que
+sí cabe:
 
 ```properties
 org.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m -XX:ReservedCodeCacheSize=256m
 ```
 
-**El arreglo se aplica en la fase C₁, no aquí.** Documentar el problema sí; tocar la
-configuración sólo cuando se haya observado el fallo, para no escribir una evidencia que no
-existe. Si el build pasa con 8 GB, esta sección se retira.
+Con ese valor el build llegó a 184 tareas y generó el APK, así que la predicción se
+cumplió. **Pero no era el bloqueo real**, y aquí está la lección: se corrigió una causa
+plausible sin comprobar antes si era la causa. El build con `-Xmx8G` habría muerto, sí,
+pero también moría con la memoria arreglada, y por otra razón (§2.2).
+
+### 2.2 Lo que sí bloqueaba el APK: falta CMake
+
+**Verificado el 27 de septiembre de 2026.** El bloqueo real no era la memoria:
+
+```
+> Task :app:configureCMakeDebug[arm64-v8a] FAILED
+> [CXX1300] CMake '3.22.1' was not found in SDK, PATH, or by cmake.dir property.
+```
+
+La cadena es `flutter_secure_storage` → `jni` → C++ nativo → AGP 9.1.0 exige CMake 3.22.1.
+El build muere **al final**, después de casi todo lo demás, que es lo que lo hace
+confuso. `flutter doctor` lo avisaba, pero como requisito de escritorio, y parecía no
+importar para Android. Sí importa: instalar el `cmake` de la distribución no basta, hace
+falta el del SDK con la versión exacta, `sdkmanager "cmake;3.22.1"`.
+
+Nadie lo había detectado porque **nunca se había construido un APK** en este repo. La
+cadena de herramientas de Android nunca se exertó.
+
+### 2.3 El build se cuelga en la red sin fallar
+
+**Verificado el 27 de septiembre de 2026.** El primer intento (`flutter build apk --debug`,
+con red) pasó unos 40 minutos sin escribir un solo archivo: Gradle esperaba conexiones a
+`dl.google.com` que no avanzaban ni daban error. Se reconoce porque el proceso consume
+poca CPU y `build/` no cambia.
+
+Se resuelve compilando directo y en modo offline, que es legítimo porque la caché de
+Gradle ya tiene la distribución 9.3.1 y el AGP 9.1.0:
+
+```sh
+cd android && ./gradlew assembleDebug --offline -Dorg.gradle.daemon=false
+```
+
+### 2.4 Qué cuesta de verdad un build en esta máquina
+
+**Verificado el 27 de septiembre de 2026**, con el detalle importante de por qué:
+
+| Condición | Tiempo |
+|---|---|
+| Con OracleXE corriendo (2 GB en 57 procesos) | **31 min**, swap a 3480/3979 MB |
+| Primer intento, además colgado en la red, hasta morir por CMake | 1 h 54 min |
+
+Lo que convierte minutos en horas no es Flutter: es el *oversubscription*. El plan §3.1 ya
+advertía de la memoria, y acertó, pero la palanca mayor resultó ser **parar OracleXE**, no
+bajar el heap. En una máquina de 8 GB o más, esta fase son minutos.
 
 ## 3. Por qué el emulador va de último
 
@@ -120,20 +164,26 @@ cambio de una API key.
 Cada una con su criterio de aceptación, en forma de lista de verificación: mientras la casilla
 esté vacía, la fase no está hecha, por mucho que haya código escrito.
 
-### Fase C₁ — Sondeo de build (**primero**)
+### Fase C₁ — Sondeo de build (**primero**) — **HECHA el 27 de septiembre de 2026**
 
 Arreglar `org.gradle.jvmargs` y `flutter build apk --debug`, con el emulador apagado y
 Ollama parado.
 
 *Por qué va primero:* responde una sola pregunta binaria — ¿puede esta máquina producir un
 APK? Si la respuesta es no, la fase D hay que replantearla entera, y conviene saberlo en
-el minuto 20 y no después de tres días escribiendo backend. Se usa `--debug` porque es el
-build más barato y comparte casi todo el compilado con el de `release`: si el debug pasa, la
-RAM está probada. La caché de Gradle ya está caliente, así que no hay descargas grandes.
+el minuto 20 y no después de tres días escribiendo backend.
 
-- [ ] `flutter build apk --debug` termina sin `OutOfMemoryError`
-- [ ] Existe `build/app/outputs/flutter-apk/app-debug.apk`
-- [ ] `android/gradle.properties` con la memoria ajustada, y nota en `ENTORNO.md` §20
+*Resultado: **sí puede**, pero no por la razón que se suponía. La respuesta correcta
+estaba en §2.2, no en §2.1. El emulador no hizo falta ni se encendió: el sondeo se
+cumple entero en headless, como se suponía en §3.
+
+- [x] El APK se construye sin `OutOfMemoryError` → `BUILD SUCCESSFUL in 31m 11s`
+- [x] Existe `build/app/outputs/flutter-apk/app-debug.apk` → 164 MB, firmado e instalable
+- [x] `android/gradle.properties` con la memoria ajustada, y nota en `ENTORNO.md` §20
+
+**Lo que se averigua de paso:** el APK es `com.goaltime.goaltime_flutter` 1.0.0, target SDK
+36, con `arm64-v8a`, `armeabi-v7a` y `x86`, y firma de debug. Con esto queda probado que
+la fase D es posible y que la C₂ no debería tener sorpresas de toolchain.
 
 ### Fase A — Asistente IA, backend
 

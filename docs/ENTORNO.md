@@ -108,12 +108,16 @@ export ANDROID_SDK_ROOT="$ANDROID_HOME"
 export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator"
 
 sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" \
-    "emulator" "system-images;android-34;google_apis;x86_64"
+    "emulator" "system-images;android-34;google_apis;x86_64" \
+    "cmake;3.22.1"          # la necesita el plugin flutter_secure_storage, ver abajo
 sdkmanager --licenses    # tiene que terminar en "All Android SDK package licenses accepted."
 
 # JDK 21
 sudo apt install -y openjdk-21-jdk
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+
+# CMake y Ninja, sólo para compilar el APK
+sudo apt install -y cmake ninja-build
 
 # Docker
 sudo apt install -y ca-certificates curl gnupg
@@ -409,25 +413,46 @@ del webhook, de `stripe listen --forward-to localhost:5000/api/pagos/webhook`.
 
 No son hipótesis: pasó cada una de estas durante el trabajo.
 
-1. **Dos `adb` en el mismo equipo.** `flutter doctor` avisa que hay un `adb` en el SDK y
+1. **CMake falta y el APK no se puede construir.** El más traicionero, porque
+   `flutter doctor` lo avisa como requisito de escritorio y parece que da igual si sólo
+   quieres Android. La cadena es: `flutter_secure_storage` → `jni` → código nativo en C++
+   → AGP 9.1.0 exige **CMake 3.22.1** exactamente. Sin él, el build avanza por casi todas
+   las tareas y muere al final:
+
+   ```
+   > Task :app:configureCMakeDebug[arm64-v8a] FAILED
+   > [CXX1300] CMake '3.22.1' was not found in SDK, PATH, or by cmake.dir property.
+   ```
+
+   Se instala en el SDK, que es donde AGP lo busca antes que el del sistema:
+   `sdkmanager "cmake;3.22.1"`. Instalar el `cmake` de la distribución **no basta**: puede
+   ser otra versión y AGP sigue sin encontrarla.
+2. **El build se cuelga en `dl.google.com` sin fallar.** Con la caché de Gradle incompleta,
+   Gradle se queda esperando conexiones que no avanzan ni dan error: el build puede pasar
+   40 minutos con `Running Gradle task 'assembleDebug'...` y sin escribir un archivo. Se
+   reconoce mirando si el proceso consume CPU y si el directorio `build/` cambia. Se
+   resuelve con `--offline`, que es legítimo porque todo lo necesario ya está en la caché.
+3. **Dos `adb` en el mismo equipo.** `flutter doctor` avisa que hay un `adb` en el SDK y
    otro en `/usr/lib/android-sdk`, y que eso rompe la detección de dispositivos. Se
    resuelve dejando uno solo en el `PATH`, y conviene quitar el que venga con el sistema
    si instalaste el SDK a mano.
-2. **La API muere al arrancar contra PostgreSQL.** Pasa si el *healthcheck* consulta el
+4. **La API muere al arrancar contra PostgreSQL.** Pasa si el *healthcheck* consulta el
    socket unix en vez de TCP: durante el arranque PostgreSQL levanta un servidor
    temporal que sólo escucha ahí, el *healthcheck* da "ok" antes de que exista un
    listener TCP, y el contenedor de la API muere con *connection refused*. Ya está
    corregido en `docker-compose.yml` con `pg_isready -h 127.0.0.1`.
-3. **`createdb` antes de la suite contra PostgreSQL.** La fixture borra el esquema entre
+5. **`createdb` antes de la suite contra PostgreSQL.** La fixture borra el esquema entre
    tests, y por eso la base de los tests es aparte. Sin crearla, la suite no arranca.
-4. **El contrato real muere por memoria** con 3.7 GB de RAM. El síntoma es un fallo sin
+6. **El contrato real muere por memoria** con 3.7 GB de RAM. El síntoma es un fallo sin
    mensaje útil: `flutter_tools` dice `did not complete` y el kernel mata el proceso.
-   Con 16 GB funciona; mientras tanto, en CI.
-5. **Un `401` que no es un `401`.** La app responde siempre *"Vuelve a iniciar sesión."*
+   Con 16 GB funciona; mientras tanto, en CI. Ojo: la causa es la memoria **disponible**,
+   no un swap lleno. Cuando este equipo tenía OracleXE corriendo con 2 GB en 57 procesos,
+   el mismo build del APK tardaba 31 minutos y el swap llegaba a 3480 de 3979 MB.
+7. **Un `401` que no es un `401`.** La app responde siempre *"Vuelve a iniciar sesión."*
    ante cualquier `401`, pero una cuenta desactivada contesta `403` al volver a
    iniciar sesión, así que el consejo no lleva a ninguna parte. Está anotado en
    [`ESTADO.md`](ESTADO.md#huecos-conocidos) como hueco conocido.
-6. **El orden de las listas cambia con la configuración regional.** Con el locale de
+8. **El orden de las listas cambia con la configuración regional.** Con el locale de
    español, `"Zuleima"` se ordena después de `"ana"` en PostgreSQL, y en SQLite no. La
    base se inicializa con `LC_COLLATE=C` por eso, y si se crea a mano sin eso, el orden
    de los catálogos no coincide con el que verifica el CI.
