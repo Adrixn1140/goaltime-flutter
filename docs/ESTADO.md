@@ -1,10 +1,16 @@
 # Estado de la aplicación
 
-**Snapshot al 26 de septiembre de 2026.** No es un documento de contrato ni una
+**Snapshot al 28 de septiembre de 2026.** No es un documento de contrato ni una
 especificación: el contrato es [`spec.md`](spec.md) y la evaluación de diseño es
 [`heuristics.md`](heuristics.md). Este archivo existe para responder, de una vez, *qué
 está construido y qué está comprobado*, con la fecha y la evidencia. Si algo aquí
 contradice a la spec, manda la spec.
+
+> **Actualizado el 28 de septiembre.** Lo único que cambió respecto del snapshot del 26 es
+> que **el APK de Android ya se construye y está verificado** —ver *Evidencia de
+> verificación* y el hueco 1—. El resto del proyecto sigue igual: los tres módulos, los
+> tests y la evidencia de ellos no se tocaron. Lo que se está construyendo ahora está en
+> [`PLAN.md`](PLAN.md), no aquí.
 
 ## Resumen
 
@@ -50,10 +56,17 @@ Todo lo de esta tabla se ejecutó, no se dedujo. La corrida de CI citada es
 | `flutter test` | **101 pasan**, 9 de contrato real omitidos sin red |
 | `contrato real` contra la API en CI | **9 pasan** |
 | CI en `main` | **4 de 4 jobs en verde** |
+| `flutter build apk --debug` | **BUILD SUCCESSFUL in 31m11s** (28 sep) |
+| APK con `aapt2` y `apksigner` | `com.goaltime.goaltime_flutter` 1.0.0 · target 36 · 3 ABIs · firmado |
 
 Los cuatro jobs se llaman `Backend (SQLite)`, `Backend (PostgreSQL, migraciones y
 anti-drift)`, `App (analyze + tests)` e `integracion`, que en la interfaz de GitHub
 aparece como *Contrato app ↔ backend real*.
+
+Las dos últimas filas son del 28 de septiembre y no las cubre CI: son de esta máquina. El
+APK es de **debug**, son 164 MB porque lleva las tres ABIs y los símbolos, y está firmado
+con el certificado de debug, que basta para instalarlo por sideload. **Construirlo no es
+lo mismo que haberlo probado:** todavía no se instaló ni se ejecutó, que es el hueco 1.
 
 ### Backend: 278 tests
 
@@ -111,12 +124,19 @@ Cada una está argumentada en el sitio al que apunta; aquí sólo está el índi
 
 Lo que el proyecto **no** hace, escrito sin adornos.
 
-1. **Capturas de la app: pendiente.** No se tomó ninguna. El toolchain de Android está
-   instalado y con las licencias aceptadas —SDK 36, emulador 37.1.11, imagen de sistema
-   `android-34` y un AVD llamado `cel_test`—, y `/dev/kvm` está presente, así que la
-   aceleración por hardware está disponible. Lo que no llegó a pasar es **arrancar el
+1. **La app no se ha ejecutado en un dispositivo: no hay capturas.** El APK **sí** se
+   construyó y se verificó (28 sep, ver *Evidencia de verificación*), pero **instalarlo y
+   verlo correr sigue sin hacerse**, y sin eso no hay ni una captura. El toolchain de
+   Android está instalado y con las licencias aceptadas —SDK 36, emulador 37.1.11, imagen
+   de sistema `android-34` y un AVD llamado `cel_test`—, y `/dev/kvm` está presente, así que
+   la aceleración por hardware está disponible. Lo que no llegó a pasar es **arrancar el
    emulador**: con 2 núcleos y 3.7 GB de RAM no se intentó. Queda como tarea manual, con
-   las instrucciones en [`ENTORNO.md`](ENTORNO.md#emulador-de-android).
+   las instrucciones en [`ENTORNO.md`](ENTORNO.md#emulador-de-android) y planificada como
+   fase D en [`PLAN.md`](PLAN.md).
+   **Un requisito que este hueco no mencionaba y que bloquea el APK**: faltaba CMake
+   3.22.1, que exige la cadena `flutter_secure_storage` → `jni` → C++ nativo. Está
+   documentado en [`ENTORNO.md`](ENTORNO.md#problemas-que-ya-ocurrieron-de-verdad) y ya
+   está resuelto, así que no es un hueco abierto sino una trampa para quien clone el repo.
 2. **Stripe con claves reales no está verificado.** El camino probado de punta a punta
    es el de `PAGADORA=mock`. Con claves reales además habría que exponer el webhook, que
    aquí no se puede. El código de Stripe está detrás de la interfaz `PasarelaPago` y es

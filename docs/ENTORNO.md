@@ -38,28 +38,33 @@ verificar.
 
 ### El requisito que no está en la tabla: `org.gradle.jvmargs`
 
-**Inferido el 27 de septiembre de 2026, no ejecutado.** `android/gradle.properties` pide
-`-Xmx8G` al proceso de Gradle, que es el valor por defecto del template de Flutter:
+**Verificado el 27 de septiembre de 2026: el build sí se completa con el valor ajustado.**
+`android/gradle.properties` traía `-Xmx8G` al proceso de Gradle, que es el valor por defecto
+del template de Flutter:
 
 ```properties
 org.gradle.jvmargs=-Xmx8G -XX:MaxMetaspaceSize=4G -XX:ReservedCodeCacheSize=512m
 ```
 
 En un equipo con menos de 8 GB eso no puede funcionar: el JVM crece hasta que el kernel lo
-mata, y como el archivo **está versionado**, el problema lo hereda cualquiera que clone el
-repo en una máquina modesta. Si `flutter build apk` falla con `OutOfMemoryError` o se
-cuelga cambiando de disco, el arreglo es bajar el valor a algo que quepa en el equipo:
+mata, y como el archivo **está versionado**, el problema lo heredaba cualquiera que clone el
+repo en una máquina modesta. Bajado a lo que sí cabe, y con eso se generó el APK:
 
 ```properties
 org.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m -XX:ReservedCodeCacheSize=256m
 ```
 
-Está pendiente de aplicar en la fase C₁ de [`PLAN.md`](PLAN.md). Si el build resulta
-pasar con 8 GB, esta nota se retira: por ahora es una lectura de la configuración, no un
-fallo observado.
+Dos advertencias que sólo se obtienen ejecutando:
+
+- **La memoria no era el bloqueo real.** Corregido el heap, el build siguió fallando, y por
+  un motivo del todo otro: faltaba CMake. La cadena de herramientas está en *Problemas que
+  ya ocurrieron de verdad*, punto 1.
+- **El tiempo depende de lo que tenga la máquina.** Con OracleXE corriendo (2 GB en 57
+  procesos ajenos a este proyecto) el build tardó **31 minutos**, con el swap a 3480 de
+  3979 MB. En una máquina de 8 GB o más esto son minutos.
 
 El detalle de por qué el emulador, un modelo de lenguaje local y Gradle no pueden coexistir
-en 3.7 GB está en `PLAN.md` §3.1.
+en 3.7 GB está en [`PLAN.md`](PLAN.md) §3.1.
 
 ## Versiones, y por qué importan
 
@@ -467,13 +472,22 @@ Para que nadie confunde una instrucción con una comprobación:
 - **El arranque del emulador**: el AVD, la imagen de sistema y `/dev/kvm` están
   verificados uno por uno, pero nunca se arrancó el emulador completo. El arranque en
   un equipo con 3.7 GB de RAM es lo menos probado de este documento.
+- **Qué SÍ está verificado en Android**, para que lo anterior no se lea más de lo que
+  dice: el 27 de septiembre de 2026 se construyó el APK de debug de punta a punta
+  (`BUILD SUCCESSFUL in 31m 11s`), y se verificó con `aapt2` y `apksigner`. Es
+  `com.goaltime.goaltime_flutter` 1.0.0, target SDK 36, con `arm64-v8a`, `armeabi-v7a` y
+  `x86`, firmado con el certificado de debug — o sea **instalable por sideload**. Lo que
+  no se ha hecho todavía es *instalarlo* y *verlo funcionando*, que es la fase D del
+  plan: construir el APK y probarlo son dos cosas distintas.
 - **iOS**: no se compiló para iOS, y `flutter build ios` necesita macOS con Xcode. Los
   archivos de `ios/` están en el repositorio, pero eso es todo lo que se puede afirmar
   desde aquí.
 - **El escritorio de Linux**: `flutter doctor` marca el *toolchain* incompleto por falta
   de `cmake`, `ninja` y `pkg-config`, así que compilar para escritorio no se probó. Sin
   embargo, no hay carpeta `linux/`, con lo que la app no se puede ejecutar ahí
-  igualmente.
+  igualmente. Ojo con la lectura: `cmake` y `ninja` **sí** hacen falta para el APK de
+  Android (ver *Problemas que ya ocurrieron de verdad*, punto 1), así que la advertencia
+  de `flutter doctor` no era sólo de escritorio.
 - **El camino de Stripe con claves reales**: lo verificado es el de `PAGADORA=mock`. La
   CLI de Stripe no está instalada en este equipo, y `ngrok` sí, en
   `/usr/local/bin/ngrok`, pero sin probar.
