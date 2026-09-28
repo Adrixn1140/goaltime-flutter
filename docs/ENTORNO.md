@@ -36,6 +36,31 @@ Docker levanta PostgreSQL y la API al mismo tiempo. Con 16 GB se puede correr el
 emulador, la API y el contrato real a la vez, que es la diferencia entre probar y
 verificar.
 
+### El requisito que no está en la tabla: `org.gradle.jvmargs`
+
+**Inferido el 27 de septiembre de 2026, no ejecutado.** `android/gradle.properties` pide
+`-Xmx8G` al proceso de Gradle, que es el valor por defecto del template de Flutter:
+
+```properties
+org.gradle.jvmargs=-Xmx8G -XX:MaxMetaspaceSize=4G -XX:ReservedCodeCacheSize=512m
+```
+
+En un equipo con menos de 8 GB eso no puede funcionar: el JVM crece hasta que el kernel lo
+mata, y como el archivo **está versionado**, el problema lo hereda cualquiera que clone el
+repo en una máquina modesta. Si `flutter build apk` falla con `OutOfMemoryError` o se
+cuelga cambiando de disco, el arreglo es bajar el valor a algo que quepa en el equipo:
+
+```properties
+org.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m -XX:ReservedCodeCacheSize=256m
+```
+
+Está pendiente de aplicar en la fase C₁ de [`PLAN.md`](PLAN.md). Si el build resulta
+pasar con 8 GB, esta nota se retira: por ahora es una lectura de la configuración, no un
+fallo observado.
+
+El detalle de por qué el emulador, un modelo de lenguaje local y Gradle no pueden coexistir
+en 3.7 GB está en `PLAN.md` §3.1.
+
 ## Versiones, y por qué importan
 
 Todas verificadas en este equipo el 26 de septiembre de 2026.

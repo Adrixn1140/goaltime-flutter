@@ -34,6 +34,7 @@ contrato de construcción (no de migración).
 - [`docs/spec.md`](docs/spec.md) — Especificación *spec-driven*: contrato de API, catálogos, restricciones y criterios de aceptación
 - [`docs/heuristics.md`](docs/heuristics.md) — Evaluación heurística (Nielsen) + guía de diseño trazable
 - [`docs/ESTADO.md`](docs/ESTADO.md) — Qué está construido y qué está comprobado, con la evidencia de verificación y los huecos conocidos
+- [`docs/PLAN.md`](docs/PLAN.md) — Qué falta por construir, en qué orden y con qué riesgo de hardware
 - [`docs/ENTORNO.md`](docs/ENTORNO.md) — Versiones exactas e instalación paso a paso para ejecutar el proyecto en Linux, Windows o macOS
 - [`backend/README.md`](backend/README.md) — Cómo correr la API, variables de entorno y datos de prueba
 
@@ -71,6 +72,7 @@ tool/           verificar_integracion.sh: backend real + contrato de la app
 - [x] Verificación en cada push: backend, PostgreSQL con migraciones y anti-drift, app y contrato app ↔ backend real
 - [x] Una cuenta desactivada no conserva la sesión: un test parametrizado barre las 18 rutas protegidas, y `logout` es la única excepción deliberada
 - [ ] Capturas de la app en dispositivo real
+- [ ] Asistente de reserva por lenguaje natural — especificado en [`spec.md` §3.6](docs/spec.md), construido en [`PLAN.md`](docs/PLAN.md) fases A y B
 
 ## Ejecutar el backend
 
