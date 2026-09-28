@@ -51,7 +51,7 @@ def obtener_motor(config=None) -> MotorLLM:
 
         motor = GeminiMotor(
             api_key=config.get("GEMINI_API_KEY", ""),
-            modelo=config.get("GEMINI_MODELO", "gemini-2.0-flash"),
+            modelo=config.get("GEMINI_MODELO", "gemini-3.6-flash"),
         )
     else:
         raise RuntimeError(

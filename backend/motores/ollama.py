@@ -22,6 +22,7 @@ from motores.base import (
     MotorLLM,
     PeticionHerramienta,
     RespuestaIninterpretable,
+    sistema_interpretar,
 )
 
 #: Generoso a propósito. Un `qwen2.5:3b` en 2 núcleos con 3.7 GB tarda del orden de
@@ -47,7 +48,7 @@ class OllamaMotor(MotorLLM):
             "model": self.modelo,
             "stream": False,
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": sistema_interpretar()},
                 {"role": "user", "content": mensaje},
             ],
             "tools": [ESQUEMA_HERRAMIENTA],

@@ -64,7 +64,7 @@ class Config:
     #: Gemini sí sale a la red, así que la llave es del backend y nunca de la app: una
     #: llave dentro de un APK es una llave pública (spec.md 3.6 y 7.2).
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-    GEMINI_MODELO = os.getenv("GEMINI_MODELO", "gemini-2.0-flash")
+    GEMINI_MODELO = os.getenv("GEMINI_MODELO", "gemini-3.6-flash")
 
     #: Canchas que el motor `mock` sabe nombrar. Separadas por coma porque en el mock son
     #: datos, no una consulta: el mock no toca la base, y por eso necesita que le digan

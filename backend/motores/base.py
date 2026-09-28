@@ -199,6 +199,29 @@ REGLAS_REDACCION = """Ya consultaste la disponibilidad. Escribe la respuesta par
 - No digas que está reservado: sólo disponible."""
 
 
+def sistema_interpretar() -> str:
+    """El prompt de la primera vuelta con la fecha de hoy embebida.
+
+    Un modelo no sabe qué día es hoy: su reloj interno es el de los datos con los que se
+    entrenó, que en Gemini van con meses o años de retraso. Sin esta línea, "mañana" se
+    convierte en una fecha del pasado, y el `422` de la ventana de 6 días lo devuelve al
+    que pregunta con cara de que el asistente no funciona. La fecha la pone el backend, que
+    es el único que la conoce de verdad: exactamente el mismo reparto que hace que el
+    `horario_id` lo consulte la base y no lo invente el modelo.
+    """
+    from datetime import date
+
+    hoy = date.today().isoformat()
+    return (
+        SYSTEM_PROMPT
+        + "\n\nHoy es "
+        + hoy
+        + " (formato YYYY-MM-DD). Calcula las fechas relativas —'hoy', 'mañana', "
+        "'pasado mañana'— a partir de esta fecha, que es la real, y no de tu memoria: "
+        "tu conocimiento de cuál es la fecha actual está desfasado."
+    )
+
+
 class MotorLLM(ABC):
     """Contrato mínimo de un motor de lenguaje."""
 
