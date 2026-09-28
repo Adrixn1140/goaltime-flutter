@@ -8,6 +8,7 @@ from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
 from blueprints.admin import bp as admin_bp
+from blueprints.asistente import bp as asistente_bp
 from blueprints.auth import bp as auth_bp
 from blueprints.canchas import bp as canchas_bp
 from blueprints.disponibilidad import bp as disponibilidad_bp
@@ -49,6 +50,7 @@ def create_app(config_object=Config):
     app.register_blueprint(pagos_bp, url_prefix="/api")
     app.register_blueprint(gestion_bp, url_prefix="/api")
     app.register_blueprint(admin_bp, url_prefix="/api")
+    app.register_blueprint(asistente_bp, url_prefix="/api")
 
     return app
 

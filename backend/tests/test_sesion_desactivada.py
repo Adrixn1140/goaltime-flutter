@@ -69,6 +69,9 @@ RUTAS_PROTEGIDAS = [
     ("cliente", "post", "/api/pagos/checkout", {"reserva_id": 999999}),
     ("cliente", "get", "/api/pagos/999999", None),
     ("cliente", "post", "/api/pagos/999999/simular", {"resultado": "aprobado"}),
+    # El asistente entra aquí por `con_rol`, como cualquier otra ruta protegida: una
+    # cuenta desactivada que puede seguir preguntando canchas libres es una sesión viva.
+    ("cliente", "post", "/api/asistente", {"mensaje": "quiero jugar mañana"}),
 ]
 
 # Rutas que NO pasan por `con_rol`, con el motivo de cada una. `/api/logout` es la

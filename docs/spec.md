@@ -311,9 +311,10 @@ GET  /api/reporte               → agregados para gráficas (ingresos, reservas
 
 ### 3.6 Asistente de reserva por lenguaje natural
 
-**Estado: especificado, no implementado.** Esta sección existe porque en este proyecto el
-contrato se escribe antes que el código; la implementación y su verificación están en
-[`PLAN.md`](PLAN.md) fases A y B. **Nada de lo que se describe aquí corre todavía.**
+**Estado: implementado en el backend, verificado con 22 tests.** La parte de Flutter es
+la fase B de [`PLAN.md`](PLAN.md) y no existe todavía. Corre con `LLM_PROVEEDOR=mock` por
+omisión, y los proveedores reales (`ollama`, `gemini`) están escritos pero su integración
+con un servicio vivo no se ha probado.
 
 ```
 POST /api/asistente    → respuesta redactada + sugerencias de reserva
@@ -355,11 +356,33 @@ POST /api/asistente    → respuesta redactada + sugerencias de reserva
 |---|---|---|
 | `cancha` | texto | nombre o parte del nombre; **el backend lo resuelve a un `Cancha.id`** |
 | `fecha` | `YYYY-MM-DD` | dentro de la ventana de 6 días de §3.2 |
-| `franja` | `mañana` \| `tarde` \| `noche` \| `cualquiera` | filtro de §3.2 |
+| `franja` | `mañana` \| `tarde` \| `noche` \| `cualquiera` | filtro por hora de inicio, definido abajo |
 
 `cancha` es texto y no un id a propósito: el modelo no conoce identificadores, y pedirle
 uno lo invitaría a inventarlo en lugar de pedir aclaración. Que lo resuelva el backend es
 lo que hace que la sugerencia sea real y no una alucinación con forma de cita.
+
+Una cancha que no se resuelve **no es un error**: devuelve cero sugerencias y una frase
+para que el modelo la diga. Es la diferencia entre "no encontré una cancha con ese nombre"
+y "te recomiendo una cancha que no existe", y la segunda es la que hace que la gente deje
+de confiar en el asistente.
+
+#### Los límites de `franja`
+
+Esta sección declaraba `franja` como un filtro de §3.2 y §3.2 no tiene ninguno, así que
+había que definirlos aquí. El criterio es la **hora de inicio** del slot y las fronteras
+son medias, para que un slot no pueda estar en dos franjas:
+
+| Franja | Horarios |
+|---|---|
+| `mañana` | 06:00 a 11:59 |
+| `tarde` | 12:00 a 17:59 |
+| `noche` | 18:00 en adelante |
+| `cualquiera` | todos |
+
+Viven en `dominio/disponibilidad.py` y son valores de negocio, no una constante del
+endpoint: `GET /api/disponibilidad` siempre pasa `cualquiera`, así que su comportamiento no
+depende de ellos.
 
 #### Errores de §3.6
 

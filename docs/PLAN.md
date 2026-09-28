@@ -199,10 +199,27 @@ El único refactor de código existente: la lógica de disponibilidad vive *dent
 El blueprint nuevo es `POST /api/asistente`, bajo `@con_rol(ROL_CLIENTE)`, registrado en
 `app.py`. La llave del LLM sólo en el backend (§7.2).
 
-- [ ] `pytest` verde con `LLM_PROVEEDOR=mock`, sin red
-- [ ] `test_asistente.py`: la herramienta devuelve slots **reales** de la base, no un fixture
-- [ ] `403` para `dueno` y `admin`; `401` sin token
-- [ ] `calcular_slots` extraído y los 36 tests de disponibilidad siguen en verde
+- [x] `pytest` verde con `LLM_PROVEEDOR=mock`, sin red → **301 pasan**
+- [x] `test_asistente.py`: la herramienta devuelve slots **reales** de la base, no un fixture
+- [x] `403` para `dueno` y `admin`; `401` sin token
+- [x] `calcular_slots` extraído y los 36 tests de disponibilidad siguen en verde
+
+**Desviación del plan, y por qué.** El plan decía `backend/llm/` y `mock_llm.py`; lo
+hecho es `backend/motores/` y `mock.py`. El motivo es que `llm` se confunde con el modelo
+—el motor es el *proveedor*, y el proveedor trae el prompt, el esquema de la herramienta y
+el transporte HTTP—. Se llama `motores` por el mismo motivo por el que existe
+`pasarelas`: el patrón es "una interfaz, varias implementaciones, un selector por
+configuración", y conviene que el nombre del paquete lo diga.
+
+Lo segundo: el plan decía extraer `calcular_slots(cancha_id, fecha_inicio)`, y la firma
+acabó siendo `calcular_slots(cancha, fecha_inicio, ...)`. Recibe la cancha ya resuelta
+porque quien la resuelve son dos callers distintos con dos criterios distintos —el endpoint
+por id, el asistente por nombre de texto— y meter esa diferencia dentro de la función
+significa que el asistente pasaría un id que no tiene.
+
+**Lo que el plan no anticipó:** `franja` está en la spec como un "filtro de §3.2" y §3.2 no
+tiene filtro de franja. Los límites había que decidirlos en algún sitio, y ahora están
+en `dominio/disponibilidad.py` y en §3.6 de la spec.
 
 ### Fase B — Asistente IA, app
 

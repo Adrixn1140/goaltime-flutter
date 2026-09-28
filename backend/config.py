@@ -47,6 +47,33 @@ class Config:
     STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
     STRIPE_CURRENCY = os.getenv("STRIPE_CURRENCY", "cop")
 
+    # --- Asistente de lenguaje natural (spec.md 3.6) ---------------------------------------
+    #: `mock` por omisión, no `ollama`. Es la decisión que permite que `pytest` y CI
+    #: corran sin un modelo cargado: un test que necesita un LLM local no es un test, es
+    #: una prueba de integración con una dependencia de 4 GB. Igual que `PAGADORA=mock`
+    #: permite probar el flujo de pago sin claves de Stripe, aquí se prueba el asistente
+    #: sin modelo.
+    LLM_PROVEEDOR = os.getenv("LLM_PROVEEDOR", "mock")
+
+    #: Ollama corre en local, así que no hay llave y no sale nada de la máquina. El modelo
+    #: por omisión es de los que entran en la RAM que tiene este proyecto documentada
+    #: (ver `PLAN.md` §3.1): con menos de 4 GB libres, un 7B no arranca.
+    OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+    OLLAMA_MODELO = os.getenv("OLLAMA_MODELO", "qwen2.5:3b")
+
+    #: Gemini sí sale a la red, así que la llave es del backend y nunca de la app: una
+    #: llave dentro de un APK es una llave pública (spec.md 3.6 y 7.2).
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_MODELO = os.getenv("GEMINI_MODELO", "gemini-2.0-flash")
+
+    #: Canchas que el motor `mock` sabe nombrar. Separadas por coma porque en el mock son
+    #: datos, no una consulta: el mock no toca la base, y por eso necesita que le digan
+    #: qué canchas existen. Vacío significa "el mock no reconoce ninguna", que es un
+    #: mock que siempre devuelve sugerencias de todas las canchas.
+    LLM_MOCK_CANCHAS = tuple(
+        c.strip() for c in os.getenv("LLM_MOCK_CANCHAS", "").split(",") if c.strip()
+    )
+
     #: Base pública de la app; de aquí salen las URLs de retorno de Stripe Checkout.
     APP_URL_BASE = os.getenv("APP_URL_BASE", "http://localhost:5000")
 
@@ -66,3 +93,7 @@ class TestConfig(Config):
     SQLALCHEMY_DATABASE_URI = os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")
     JWT_SECRET_KEY = "test-secret-goaltime-suficientemente-largo"
     PAGADORA = "mock"
+    #: El asistente se prueba contra el motor `mock` y **nunca** contra un proveedor real:
+    #: un test que hable con Ollama o con Gemini deja de ser un test, y su primer síntoma
+    #: es que alguien lo marca para saltárselo cuando va lento.
+    LLM_PROVEEDOR = "mock"

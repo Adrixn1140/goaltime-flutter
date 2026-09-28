@@ -4,6 +4,10 @@ flask-jwt-extended==4.7.4
 Flask-Cors==6.0.5
 python-dotenv==1.2.3
 pytest==9.1.1
+# Cliente HTTP del asistente de lenguaje (spec.md 3.6). Explícito y no heredado: `stripe`
+# ya arrastra httpx, pero depender de la versión que le toque a una librería para hablar
+# con Ollama y Gemini es atar el asistente a la actualización de la pasarela de pago.
+httpx==0.28.1
 # Pasarela real (spec.md 3.3). Sólo se importa cuando PAGADORA=stripe; los tests y la
 # demostración con PAGADORA=mock corren sin él.
 stripe==15.6.1
