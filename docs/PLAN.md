@@ -199,7 +199,7 @@ El único refactor de código existente: la lógica de disponibilidad vive *dent
 El blueprint nuevo es `POST /api/asistente`, bajo `@con_rol(ROL_CLIENTE)`, registrado en
 `app.py`. La llave del LLM sólo en el backend (§7.2).
 
-- [x] `pytest` verde con `LLM_PROVEEDOR=mock`, sin red → **301 pasan**
+- [x] `pytest` verde con `LLM_PROVEEDOR=mock`, sin red → **322 pasan**
 - [x] `test_asistente.py`: la herramienta devuelve slots **reales** de la base, no un fixture
 - [x] `403` para `dueno` y `admin`; `401` sin token
 - [x] `calcular_slots` extraído y los 36 tests de disponibilidad siguen en verde
@@ -232,7 +232,7 @@ documentada como decisión 6 en `ESTADO.md`: por eso el caso nuevo entra **tambi
 - [x] `flutter test` verde y `flutter analyze --fatal-infos` sin issues → **105 pasan**
 - [x] `asistente_flow_test.dart`: mensaje → opciones → confirmar
 - [x] El caso de contrato entra en `contrato_real_test.dart` (sólo CI)
-- [ ] El contrato entra al CI verde (depende de la fase F)
+- [x] El contrato entra al CI verde: corrió con **10 tests** en `36465285576`, 28 sep
 
 **Lo que se decidió construyendo.** La UI es un chat en burbujas (`asistente_screen.dart`)
 y las sugerencias viajan como tarjetas con botón *Reservar* que navegan a la reserva con
@@ -242,11 +242,21 @@ que el asistente sugirió, y sin ellos se comporta igual que antes (desde el cat
 El asistente **no reserva ni cobra**: presentar es `GET/POST /api/asistente` y confirmar es
 `POST /api/reservas`, como manda §3.6. El plan no lo decía y se decidió por el flujo.
 
-**Pendiente de la fase B (no del código).** La prueba real con Gemini en el servidor
-funcionó parcialmente el 28 sep —saludo `motor=gemini` y una vuelta con `functionCall`— y
-el resto quedó bloqueado por la cuota del free tier (`generate_content_free_tier_requests`,
-20 peticiones/día/modelo). Que el precio fuera corto no era el problema: era que la prueba
-necesita **dos** llamadas por frase. Se reanuda el día siguiente del reset (medianoche PT).
+**Pendiente de la fase B, ya cerrado.** La prueba real con Gemini en el servidor había
+funcionado parcialmente el 28 sep —saludo `motor=gemini` y una vuelta con `functionCall`—,
+bloqueada por la cuota del free tier (`generate_content_free_tier_requests`, 20
+peticiones/día/modelo). **Verificada de punta a punta el 29 de septiembre**, tras el reset
+de medianoche PT:
+
+- Corrida con `app.test_client()` in-process contra una SQLite aislada en `/tmp` y
+  `LLM_PROVEEDOR=gemini`, **7 llamadas** a la API (cupo diario: 20).
+- Cuatro frases, todas con `motor:"gemini"`: saludo, búsqueda nocturna sin slots
+  (correcta: el seed no tiene ≥18:00), cancha inexistente que no se inventa, y una
+  búsqueda con 3 sugerencias de `horario_id` reales.
+- **Borde visible:** "quiero jugar el próximo mes" devolvió sugerencias para mañana
+  (2026-09-30) — Gemini tradujo mal la fecha relativa y quedó dentro de la ventana, así
+  que el `422` no se ejercitó. Está documentado en `ESTADO.md` (hueco 7) y la ruta del
+  `422` sigue cubierta con motor inyectado en los tests.
 
 ### Fase C₂ — APK de entrega
 
@@ -296,13 +306,14 @@ entrega del plan de referencia de CanchaYa; la del medio, los huecos que el prop
 | 2. Cliente reserva y paga de punta a punta | ya estaba (`PAGADORA=mock`) | — |
 | 3. Dueño aislado por `dueno_id` | ya estaba | — |
 | 4. Admin ve todo y cambia roles | ya estaba | — |
-| 5. **Asistente IA con disponibilidad real** | **pendiente** | **A + B** |
+| 5. **Asistente IA con disponibilidad real** | **hecho** | A + B (28 sep) + prueba real (29 sep) |
 | 6. APK instalable + build de iOS | **pendiente** | **C₂** (Android) · **E** (iOS) |
-| 7. Documentación con heurísticas por pantalla | parcial | F (el chat aún no existe) |
+| 7. Documentación con heurísticas por pantalla | parcial | F (queda el mapeo del chat) |
 
-El delta real contra este repo es el ítem 5: no existe `blueprints/asistente.py` ni carpeta
-`asistente_ia/` en `lib/features/`, y no hay una sola mención a Claude, Gemini, Anthropic ni
-`llm` en todo el código. Las fases 3 y 7 de aquel plan están enteras sin hacer.
+El delta real contra aquel plan era el ítem 5, y se cerró con las fases A y B de este plan
+(28 sep) más la prueba real contra Gemini (29 sep), documentada en `ESTADO.md`. De aquel
+checklist queda lo que este plan ya recoge: el ítem 6 (APK de entrega e iOS) y el 7
+(heurísticas del chat).
 
 ### Huecos de ESTADO.md
 

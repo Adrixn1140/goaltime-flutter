@@ -70,9 +70,9 @@ tool/           verificar_integracion.sh: backend real + contrato de la app
 - [x] Módulo Admin (usuarios, reporte)
 - [x] Esquema con Alembic y contenedores (`docker compose` con PostgreSQL 16 y gunicorn)
 - [x] Verificación en cada push: backend, PostgreSQL con migraciones y anti-drift, app y contrato app ↔ backend real
-- [x] Una cuenta desactivada no conserva la sesión: un test parametrizado barre las 18 rutas protegidas, y `logout` es la única excepción deliberada
+- [x] Una cuenta desactivada no conserva la sesión: un test parametrizado barre las 19 rutas protegidas, y `logout` es la única excepción deliberada
+- [x] Asistente de reserva por lenguaje natural — `POST /api/asistente` con motor `mock`/`ollama`/`gemini` (`LLM_PROVEEDOR`), chat en la app y sugerencias que preseleccionan la reserva. Especificado en [`spec.md` §3.6](docs/spec.md), construido en [`PLAN.md`](docs/PLAN.md) fases A y B
 - [ ] Capturas de la app en dispositivo real
-- [ ] Asistente de reserva por lenguaje natural — especificado en [`spec.md` §3.6](docs/spec.md), construido en [`PLAN.md`](docs/PLAN.md) fases A y B
 
 ## Ejecutar el backend
 
@@ -119,8 +119,8 @@ que pasar la IP de la máquina en la red local.
 
 ```sh
 flutter analyze   # sin issues
-flutter test      # 101 pruebas: modelos, formato, sesión, auth, catálogo, reserva, pago, gestión del dueño y panel de admin
-cd backend && pytest -q   # 278 pruebas del backend (las mismas contra PostgreSQL, ver abajo)
+flutter test      # 105 pruebas: modelos, formato, sesión, auth, catálogo, reserva, pago, asistente, gestión del dueño y panel de admin
+cd backend && pytest -q   # 322 pruebas del backend (las mismas contra PostgreSQL, ver abajo)
 
 # El contrato de la app contra el backend real (levanta Docker, migra, siembra y baja):
 tool/verificar_integracion.sh

@@ -1,16 +1,17 @@
 # Estado de la aplicación
 
-**Snapshot al 28 de septiembre de 2026.** No es un documento de contrato ni una
+**Snapshot al 29 de septiembre de 2026.** No es un documento de contrato ni una
 especificación: el contrato es [`spec.md`](spec.md) y la evaluación de diseño es
 [`heuristics.md`](heuristics.md). Este archivo existe para responder, de una vez, *qué
 está construido y qué está comprobado*, con la fecha y la evidencia. Si algo aquí
 contradice a la spec, manda la spec.
 
-> **Actualizado el 28 de septiembre.** Lo único que cambió respecto del snapshot del 26 es
-> que **el APK de Android ya se construye y está verificado** —ver *Evidencia de
-> verificación* y el hueco 1—. El resto del proyecto sigue igual: los tres módulos, los
-> tests y la evidencia de ellos no se tocaron. Lo que se está construyendo ahora está en
-> [`PLAN.md`](PLAN.md), no aquí.
+> **Actualizado el 29 de septiembre.** Respecto del snapshot del 28: el APK de Android ya
+> se construyó y verificó en esta máquina, **el asistente por lenguaje natural se probó de
+> verdad contra Gemini, de punta a punta** —es lo único que faltaba de las fases A y B de
+> [`PLAN.md`](PLAN.md)—, y las cifras de tests quedan al día con el asistente
+> (**322 backend / 105 app**, verificadas en CI el 28 y en local el 29). Lo que se esté
+> construyendo ahora sigue en [`PLAN.md`](PLAN.md), no aquí.
 
 ## Resumen
 
@@ -37,6 +38,9 @@ están marcados. Ninguno se marcó sin haberse corrido.
 | Cierre | CI en cada push, contrato real, suite ejecutable contra PostgreSQL | 26 sep | `f120849` |
 | Seguridad | Una cuenta desactivada no conserva la sesión | 26 sep | `fdc575e` |
 | Documentación | Criterios de §7.6 marcados con su evidencia | 26 sep | `e77cfd2` |
+| Asistente IA (backend) | `POST /api/asistente` + `backend/motores/` (mock/ollama/gemini), disponibilidad extraída | 28 sep | `41658e2` `2efca43` |
+| Asistente IA (app) | Chat con sugerencias que preseleccionan la reserva, caso en el contrato real | 28 sep | `557c317` |
+| Prueba real de Gemini | `/api/asistente` de punta a punta contra Google, 7 llamadas | 29 sep | — |
 
 Dos commits quedan fuera de la tabla porque no construyen funcionalidad: `ddb4058`
 (documentación de estado y trazabilidad heurística) y `61ec5cc` (alinear configuración y
@@ -45,17 +49,20 @@ spec con lo que el código hacía).
 ## Evidencia de verificación
 
 Todo lo de esta tabla se ejecutó, no se dedujo. La corrida de CI citada es
-[`36287072950`](https://github.com/Adrixn1140/goaltime-flutter/actions/runs/36287072950).
+[`36465285576`](https://github.com/Adrixn1140/goaltime-flutter/actions/runs/36465285576)
+(28 de septiembre, ya con el asistente). Las filas marcadas *"(local, 29 sep)"* se
+repitieron en esta máquina el 29 de septiembre.
 
 | Comprobación | Resultado |
 |---|---|
-| `pytest` sobre SQLite | **278 pasan** |
-| `pytest` sobre PostgreSQL 16 | **278 pasan** (17m50s) |
+| `pytest` sobre SQLite | **322 pasan** (CI 28 sep · local 29 sep) |
+| `pytest` sobre PostgreSQL 16 | **322 pasan** (CI 28 sep) |
 | `alembic check` contra PostgreSQL | `No new upgrade operations detected` |
-| `flutter analyze --fatal-infos` | sin issues |
-| `flutter test` | **105 pasan**, 10 de contrato real omitidos sin red |
-| `contrato real` contra la API en CI | **10 pasan** |
-| CI en `main` | **4 de 4 jobs en verde** |
+| `flutter analyze --fatal-infos` | sin issues (local 29 sep) |
+| `flutter test` | **105 pasan**, 10 de contrato real omitidos sin red (local 29 sep) |
+| `contrato real` contra la API en CI | **10 pasan**, incluido el caso del asistente |
+| CI en `main` | **4 de 4 jobs en verde** (28 sep) |
+| **Prueba real de Gemini** | **`POST /api/asistente` con `LLM_PROVEEDOR=gemini` responde `motor:"gemini"` contra Google, de punta a punta** (29 sep, local, ver abajo) |
 | `flutter build apk --debug` | **BUILD SUCCESSFUL in 31m11s** (28 sep) |
 | APK con `aapt2` y `apksigner` | `com.goaltime.goaltime_flutter` 1.0.0 · target 36 · 3 ABIs · firmado |
 
@@ -63,12 +70,34 @@ Los cuatro jobs se llaman `Backend (SQLite)`, `Backend (PostgreSQL, migraciones 
 anti-drift)`, `App (analyze + tests)` e `integracion`, que en la interfaz de GitHub
 aparece como *Contrato app ↔ backend real*.
 
-Las dos últimas filas son del 28 de septiembre y no las cubre CI: son de esta máquina. El
-APK es de **debug**, son 164 MB porque lleva las tres ABIs y los símbolos, y está firmado
-con el certificado de debug, que basta para instalarlo por sideload. **Construirlo no es
-lo mismo que haberlo probado:** todavía no se instaló ni se ejecutó, que es el hueco 1.
+Las filas del **APK** y de la **prueba real de Gemini** no las cubre CI: son de esta
+máquina. El APK es de **debug**, son 164 MB porque lleva las tres ABIs y los símbolos, y
+está firmado con el certificado de debug, que basta para instalarlo por sideload.
+**Construirlo no es lo mismo que haberlo probado:** todavía no se instaló ni se ejecutó,
+que es el hueco 1.
 
-### Backend: 278 tests
+### Prueba real de Gemini (29 de septiembre de 2026)
+
+Se corrió `app.test_client()` in-process contra una SQLite aislada en `/tmp`, con
+`LLM_PROVEEDOR=gemini` y la llave de `backend/.env` —el camino que ya recomendaba
+[`ENTORNO.md`](ENTORNO.md#problemas-que-ya-ocurrieron-de-verdad), sin tocar el compose—.
+Cuatro frases, **7 llamadas** a la API (el cupo diario del free tier es 20 por modelo),
+todas con `motor:"gemini"`:
+
+| Frase | HTTP | Motor | Sugerencias | Lectura |
+|---|---|---|---|---|
+| `hola` | 200 | gemini | 0 | Saludo: el modelo decide no consultar la herramienta |
+| `quiero jugar mañana por la noche en cancha El Rodadero` | 200 | gemini | 0 | **Correcto**: el seed no tiene slots de noche (franja = inicio ≥ 18:00) y Gemini lo dice con palabras |
+| `quiero jugar en una cancha que no existe llamada Fantasía` | 200 | gemini | 0 | Admite que no encontró la cancha; no la inventa |
+| `quiero jugar el próximo mes` | 200 | gemini | 3 | **Borde**: Gemini tradujo "próximo mes" a mañana (2026-09-30), dentro de la ventana, y no hubo `422`. Los `horario_id` son reales y reservables; la fecha fue decisión del modelo |
+
+Todas las sugerencias llegaron con `horario_id` existente y libre en la base aislada: la
+propiedad que justifica las dos vueltas del asistente no se rompió con el proveedor real.
+El `422` de ventana no se pudo ejercitar contra el proveedor real en esta corrida porque
+el modelo nunca devolvió una fecha fuera de la ventana; esa ruta sigue cubierta con motor
+inyectado en `test_asistente.py`.
+
+### Backend: 322 tests
 
 | Archivo | Tests | Qué cubre |
 |---|---|---|
@@ -78,7 +107,9 @@ lo mismo que haberlo probado:** todavía no se instaló ni se ejecutó, que es e
 | `test_admin.py` | 31 | Usuarios, roles, reporte, no dejar la plataforma sin admin |
 | `test_reservas.py` | 27 | Atomicidad reserva+pago, `409` por slot ocupado |
 | `test_auth.py` | 23 | Registro, login, logout, contraseñas, topes de columna |
-| `test_sesion_desactivada.py` | 20 | Barrido de las 18 rutas protegidas ante cuenta desactivada |
+| `test_asistente.py` | 22 | Asistente: slots reales, topes, cancha inexistente, franja, 400/401/403/422/502 |
+| `test_motores_gemini.py` | 21 | Parser de Gemini sin red: herramienta, texto, errores y esquema traducido |
+| `test_sesion_desactivada.py` | 21 | Barrido de las 19 rutas protegidas —incluida `/api/asistente`— ante cuenta desactivada |
 | `test_modelos.py` | 12 | `to_dict` y reglas de dominio de los modelos |
 | `test_canchas.py` | 8 | Catálogo público |
 | `test_migraciones.py` | 3 | Guardián anti-drift: `alembic check` pasa y también falla |
@@ -118,7 +149,7 @@ Cada una está argumentada en el sitio al que apunta; aquí sólo está el índi
    Ver [`spec.md` §7.3](spec.md#73-despliegue).
 6. **El doble de la app es una copia, y algo la vigila.** `test/support/fake_api.dart`
    reimplementa a mano el JSON del backend, así que un campo renombrado en Flask dejaría
-   los 101 tests en verde. Lo vigila `contrato_real_test.dart`. Ver
+   los 105 tests en verde. Lo vigila `contrato_real_test.dart`. Ver
    [`spec.md` §7.4](spec.md#74-verificación-del-contrato-contra-el-backend-real).
 
 ## Huecos conocidos
@@ -163,6 +194,13 @@ Lo que el proyecto **no** hace, escrito sin adornos.
    durante el trabajo de la Fase 3 y no se limpió: subir los login helpers a `conftest.py`
    es lo correcto, pero toca cuatro archivos de tests que hoy pasan, y no era parte del
    arreglo que se estaba haciendo.
+7. **El asistente real mapea mal las fechas relativas fuera de la ventana.** En la prueba
+   del 29 sep, "quiero jugar el próximo mes" devolvió sugerencias para mañana
+   (2026-09-30), dentro de la ventana: Gemini tradujo mal la fecha, el `422` no salió y la
+   persona vería slots del día siguiente en vez de que le dijeran que sólo hay 6 días. Los
+   datos sugeridos son reales y reservables —no es una alucinación de horarios—; lo que es
+   del modelo es la interpretación de la fecha. La ruta del `422` sigue cubierta con motor
+   inyectado en `test_asistente.py`.
 
 ## Cómo reproducir la verificación
 
