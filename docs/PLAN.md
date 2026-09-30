@@ -285,12 +285,17 @@ gratis, con la limitación de que **la app expira a los 7 días**. Los pasos exa
 `ENTORNO.md` en esta fase, no antes: documentar un procedimiento que nadie ha ejecutado
 contamina el separador verificado/inferido de ese archivo.
 
-### Fase F — Documentación y CI
+### Fase F — Documentación y CI — **HECHA el 29 de septiembre de 2026**
 
 `heuristics.md` con el mapeo de la pantalla de chat, `ESTADO.md` actualizado al nuevo
 estado, `README.md` con el checklist al día y `ci.yml` si el asistente entra al contrato.
 `ESTADO.md` es un snapshot fechado de lo *verificado*: **no se le toca nada hasta que A–B
 existan**, porque su función es que nadie lo lea como promesa.
+
+Lo que se hizo, en orden: `ESTADO.md` y `PLAN.md` con la prueba real de Gemini del 29 sep
+(`bc42218`), y el mapeo del chat en `heuristics.md` con 13 decisiones trazadas a su archivo
+—cada referencia comprobada contra el código, no de memoria—. El contrato del asistente ya
+entró al CI verde con `36465285576`, así que `ci.yml` no necesitó cambios.
 
 ## 5. Trazabilidad
 
@@ -308,12 +313,11 @@ entrega del plan de referencia de CanchaYa; la del medio, los huecos que el prop
 | 4. Admin ve todo y cambia roles | ya estaba | — |
 | 5. **Asistente IA con disponibilidad real** | **hecho** | A + B (28 sep) + prueba real (29 sep) |
 | 6. APK instalable + build de iOS | **pendiente** | **C₂** (Android) · **E** (iOS) |
-| 7. Documentación con heurísticas por pantalla | parcial | F (queda el mapeo del chat) |
+| 7. Documentación con heurísticas por pantalla | **hecho** | F (29 sep, incluye el chat) |
 
 El delta real contra aquel plan era el ítem 5, y se cerró con las fases A y B de este plan
 (28 sep) más la prueba real contra Gemini (29 sep), documentada en `ESTADO.md`. De aquel
-checklist queda lo que este plan ya recoge: el ítem 6 (APK de entrega e iOS) y el 7
-(heurísticas del chat).
+checklist queda **sólo el ítem 6**: el APK de entrega y el build de iOS, fases C₂ y E.
 
 ### Huecos de ESTADO.md
 

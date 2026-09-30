@@ -6,12 +6,12 @@ especificación: el contrato es [`spec.md`](spec.md) y la evaluación de diseño
 está construido y qué está comprobado*, con la fecha y la evidencia. Si algo aquí
 contradice a la spec, manda la spec.
 
-> **Actualizado el 29 de septiembre.** Respecto del snapshot del 28: el APK de Android ya
-> se construyó y verificó en esta máquina, **el asistente por lenguaje natural se probó de
-> verdad contra Gemini, de punta a punta** —es lo único que faltaba de las fases A y B de
-> [`PLAN.md`](PLAN.md)—, y las cifras de tests quedan al día con el asistente
-> (**322 backend / 105 app**, verificadas en CI el 28 y en local el 29). Lo que se esté
-> construyendo ahora sigue en [`PLAN.md`](PLAN.md), no aquí.
+> **Actualizado el 29 de septiembre (tarde).** Por encima de la nota de la mañana: lo único
+> que se añadió a este snapshot es la **trazabilidad heurística del chat del asistente** en
+> [`heuristics.md`](heuristics.md), 13 decisiones con su archivo. Con eso la fase F de
+> [`PLAN.md`](PLAN.md) queda cerrada. No hay código nuevo ni verificación nueva que
+> reportar, y a propósito: el trabajo abierto (APK de entrega, emulador, iOS) sigue en
+> [`PLAN.md`](PLAN.md), no aquí.
 
 ## Resumen
 
@@ -40,7 +40,8 @@ están marcados. Ninguno se marcó sin haberse corrido.
 | Documentación | Criterios de §7.6 marcados con su evidencia | 26 sep | `e77cfd2` |
 | Asistente IA (backend) | `POST /api/asistente` + `backend/motores/` (mock/ollama/gemini), disponibilidad extraída | 28 sep | `41658e2` `2efca43` |
 | Asistente IA (app) | Chat con sugerencias que preseleccionan la reserva, caso en el contrato real | 28 sep | `557c317` |
-| Prueba real de Gemini | `/api/asistente` de punta a punta contra Google, 7 llamadas | 29 sep | — |
+| Prueba real de Gemini | `/api/asistente` de punta a punta contra Google, 7 llamadas | 29 sep | `bc42218` |
+| Trazabilidad heurística | `heuristics.md` con el mapeo del chat del asistente, 13 decisiones | 29 sep | — |
 
 Dos commits quedan fuera de la tabla porque no construyen funcionalidad: `ddb4058`
 (documentación de estado y trazabilidad heurística) y `61ec5cc` (alinear configuración y

@@ -32,6 +32,7 @@
 | **Disponibilidad (6 días)** | 1 Estado · 5 Prevención · 8 Minimalista | Vista por día tipo calendario; slots ocupados deshabilitados con rojo y tooltip "ocupado" |
 | **Reserva + Checkout** | 5 Prevención · 7 Flexibilidad | Paso de confirmación con resumen (cancha/fecha/hora/tarifa); botón destacado; se conserva la selección al volver |
 | **Pago (Stripe)** | 1 Estado · 9 Recuperación | Estado del pago mostrado (pendiente/aprobado/rechazado); reintento cuando la reserva vuelve a `pendiente_pago` |
+| **Asistente (chat)** | 2 Coincidencia · 6 Reconocer · 9 Recuperación | Lenguaje natural en vez de formularios; burbujas con quién escribió; hasta 3 sugerencias como tarjetas con botón *Reservar*; el fallo del proveedor se redacta como mensaje, no como pantalla de error |
 | **Mis reservas** | 3 Control y libertad · 9 Recuperación | Lista con estados visibles; acciones claras (ver ticket, cancelar con confirmación) |
 | **Panel Dueño (CRUD canchas/horarios)** | 4 Consistencia · 5 Prevención · 3 Control | Formularios coherentes; validación de solapamiento de horarios; confirmaciones en borrado |
 | **Panel Admin (usuarios/reporte)** | 6 Reconocer · 1 Estado | Tabla de usuarios con filtros; gráficas con loading y estados vacíos |
@@ -75,9 +76,27 @@ Decisiones que no aparecen en la tabla anterior porque se tomaron al escribir el
 | Un rol desconocido en la respuesta se degrada a `cliente`, el de menor permiso: ante la duda, no se muestra administración a nadie | 5 Prevención de errores | `usuarios/data/models.dart:_rolDesdeCodigo` + `models_test.dart` |
 | Los estados del reporte se ordenan con el catálogo, no como llegan del JSON: una gráfica cuyas barras cambian de sitio entre recargas no se lee | 4 Consistencia y estándares | `models.dart:estadosPresentes` |
 | Cada barra lleva su cifra al lado, y el desglose se contrasta con el total: una gráfica sin números obliga a estimar a ojo, y una que no cuadra se avisa | 1 Visibilidad de estado | `reporte_screen.dart:_Barras`, `models.dart:desgloseCuadra` |
-| Cuenta desactivada cierra la sesión (401) en vez de dejar la pantalla llena de errores de permisos: el `401` es lo único que la app sabe manejar | 9 Recuperación de errores | `auth_helpers.py:con_rol`, `perfil_screen.dart:alSalir`, `test_sesion_desactivada.py` (barrido de las 18 rutas protegidas) |
+| Cuenta desactivada cierra la sesión (401) en vez de dejar la pantalla llena de errores de permisos: el `401` es lo único que la app sabe manejar | 9 Recuperación de errores | `auth_helpers.py:con_rol`, `perfil_screen.dart:alSalir`, `test_sesion_desactivada.py` (barrido de las 19 rutas protegidas) |
 | El logout del admin invalida usuarios y reporte: la lista es de la plataforma entera y sin limpiarla se vería sin ser admin | 3 Control y libertad | `admin_shell.dart:PerfilAdminScreen` |
 | La pantalla de detalle pide el nombre de la cancha al provider, no lo vuelve a pedir al backend | 7 Flexibilidad y eficiencia | `horarios_screen.dart:nombreCancha` |
+
+### Trazabilidad del asistente (sesión 6, `spec.md 3.6`)
+
+| Decisión | Heurística | Dónde vive |
+|---|---|---|
+| El asistente **no reserva**: presenta, y quien confirma es la persona en la pantalla de reserva. El botón *Reservar* lleva fecha y `horario_id` por query y la reserva vuelve a pedir disponibilidad, como si se hubiera llegado desde el catálogo | 3 Control y libertad · 5 Prevención de errores | `asistente_screen.dart:_irAReserva`, `reserva_screen.dart` (los query son opcionales) |
+| Los `horario_id` de las sugerencias salen de una consulta a la base, nunca de lo que el modelo infiere: el modelo elige la **fecha** y el backend resuelve los **turnos** | 5 Prevención de errores | `blueprints/asistente.py:_buscar` → `dominio/disponibilidad.py:slots_reservables`, `motores/base.py:Sugerencia` |
+| Si el modelo responde sin consultar (un saludo, o una cancha que no encuentra), se respeta su respuesta con cero sugerencias y **no es un error**: la app decide qué pintar según cuántas opciones llegan, no según un código | 2 Coincidencia sistema-mundo | `asistente.py:_respuesta`, `models.dart:RespuestaAsistente` |
+| Un `502` del proveedor o un fallo de red entra en la conversación como otro mensaje del asistente, redactado para la persona, en vez de una pantalla de error o un `SnackBar` que rompe el hilo | 9 Ayuda a recuperarse de errores | `asistente_provider.dart:enviar` (el `catch` Fabrica un `MensajeChat`) |
+| Mientras se espera hay una burbuja "Buscando…" y el campo queda deshabilitado: el asistente es de dos vueltas con el proveedor, y mandar dos frases a la vez rompería el orden de los turnos | 1 Visibilidad del estado del sistema | `ConversacionEstado.enviando`, `asistente_screen.dart:_BurbujaPensando`, `_BarraDeEscritura` |
+| El saludo inicial dice en una línea qué hace la pantalla y da un ejemplo literal ("mañana en la noche"): un chat vacío sin explicación obliga a adivinar qué entiende | 10 Ayuda y documentación | `asistente_screen.dart:_Saludo` |
+| Cada mensaje nuevo baja el scroll al final, para que la burbuja recién llegada no quede fuera de vista | 1 Visibilidad del estado | `asistente_screen.dart:_bajarAlFinal` |
+| La burbuja del usuario se alinea a la derecha y se distingue por color, radio de esquina y lado: en un hilo sin turnos numerados, "quién dijo qué" no puede depender de leer el margen | 4 Consistencia y estándares | `asistente_screen.dart:_Burbuja` |
+| La tarjeta de sugerencia lleva cancha, fecha, rango y tarifa antes del botón, y el precio se formatea con el mismo helper del catálogo | 1 Visibilidad de estado · 4 Consistencia | `asistente_screen.dart:_TarjetaSugerencia`, `shared/format.dart` |
+| A lo sumo 3 sugerencias (`LIMITE_SUGERENCIAS`): un chat con quince opciones vuelve a ser el formulario que se quería evitar | 8 Diseño estético y minimalista | `blueprints/asistente.py:LIMITE_SUGERENCIAS` |
+| Una fecha fuera de la ventana de 6 días o una franja que no existe se responden `422` con el motivo, en vez de devolver una lista vacía que parece "no hay canchas" | 9 Ayuda a recuperarse de errores | `dominio/disponibilidad.py:fecha_en_ventana`, `asistente.py` (`except DominioInvalido`) |
+| `POST /api/asistente` va bajo `@con_rol(ROL_CLIENTE)`: dueño y admin reciben `403`, y una cuenta desactivada recibe `401` como cualquier otra ruta protegida | 5 Prevención de errores | `asistente.py`, `test_sesion_desactivada.py` (barrido de las 19 rutas) |
+| El motor activo viaja en la respuesta (`motor: mock\|ollama\|gemini`) y la llave del LLM nunca sale del backend | 4 Consistencia y estándares | `asistente.py:_respuesta`, `spec.md 7.2` |
 
 ## Parte 3 — Mapeo código ↔ heurística
 
