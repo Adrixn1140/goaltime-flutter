@@ -265,8 +265,29 @@ sideload, sin cuenta de Google ni los USD 25 de Play Store. `**/*.jks` ya está 
 `android/.gitignore`, así que la clave no se versiona. Ojo: **este** APK ya contiene el
 asistente, a diferencia del de la C₁.
 
+- [x] El APK se construye firmado con la clave local → `app-release.apk`, 55 MB,
+  `CN=GoalTime Local`, y `app-release.apk.sha1` al lado
 - [ ] `app-release.apk` instalado con `adb install`
 - [ ] Login y un recorrido completo funcionando en el emulador
+
+**Lo que se hizo el 29 de septiembre por la noche.** Se generó el keystore
+`android/goaltime-local.jks` con `keytool` (`CN=GoalTime Local, OU=Curso, O=GoalTime,
+L=Riohacha, ST=La Guajira, C=CO`) y su `key.properties`, y `build.gradle.kts` se cambió para
+que la firma de release salga de ahí, con la de debug como reserva si el archivo no está
+(`378a0bd`). Se quitó así el `TODO` de Flutter que pedía editar el build a mano.
+
+`flutter build apk --release` terminó y produjo 55 MB, frente a los 164 MB del debug: la
+diferencia es que el de release va compilado a código de máquina por AOT y no lleva los
+símbolos de depuración.
+`apksigner verify --print-certs` confirma la firma, y `aapt2 dump badging` da
+`com.goaltime.goaltime_flutter` 1.0.0, target SDK 36, con `arm64-v8a`, `armeabi-v7a` y
+`x86`. Las tres ABIs son las que hacen que sirva tanto en un teléfono físico como en el
+emulador `x86`.
+
+**Lo que sigue sin hacerse, y es lo que de verdad importa:** el APK **no se ha instalado**.
+`adb devices` no lista nada y el emulador nunca arrancó, así que las dos casillas que
+quedan abiertas las cierra la fase D, no esta. Construirlo y firmarlo no es probarlo: sigue
+sin haber ni una captura.
 
 ### Fase D — Emulador, instalación y capturas
 
@@ -312,12 +333,14 @@ entrega del plan de referencia de CanchaYa; la del medio, los huecos que el prop
 | 3. Dueño aislado por `dueno_id` | ya estaba | — |
 | 4. Admin ve todo y cambia roles | ya estaba | — |
 | 5. **Asistente IA con disponibilidad real** | **hecho** | A + B (28 sep) + prueba real (29 sep) |
-| 6. APK instalable + build de iOS | **pendiente** | **C₂** (Android) · **E** (iOS) |
+| 6. APK instalable + build de iOS | **a medias** | **C₂** (Android) · **E** (iOS) |
 | 7. Documentación con heurísticas por pantalla | **hecho** | F (29 sep, incluye el chat) |
 
 El delta real contra aquel plan era el ítem 5, y se cerró con las fases A y B de este plan
 (28 sep) más la prueba real contra Gemini (29 sep), documentada en `ESTADO.md`. De aquel
-checklist queda **sólo el ítem 6**: el APK de entrega y el build de iOS, fases C₂ y E.
+checklist queda **el ítem 6, y a medias**: el APK de release ya está construido y firmado
+con la clave local (C₂, 29 sep por la noche), pero **instalarlo y verlo correr es fase D**,
+y el build de iOS sigue siendo fase E sin empezar. De los siete, seis cerrados.
 
 ### Huecos de ESTADO.md
 

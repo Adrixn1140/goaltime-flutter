@@ -1,17 +1,18 @@
 # Estado de la aplicación
 
-**Snapshot al 29 de septiembre de 2026.** No es un documento de contrato ni una
+**Snapshot al 29 de septiembre de 2026 (noche).** No es un documento de contrato ni una
 especificación: el contrato es [`spec.md`](spec.md) y la evaluación de diseño es
 [`heuristics.md`](heuristics.md). Este archivo existe para responder, de una vez, *qué
 está construido y qué está comprobado*, con la fecha y la evidencia. Si algo aquí
 contradice a la spec, manda la spec.
 
-> **Actualizado el 29 de septiembre (tarde).** Por encima de la nota de la mañana: lo único
-> que se añadió a este snapshot es la **trazabilidad heurística del chat del asistente** en
-> [`heuristics.md`](heuristics.md), 13 decisiones con su archivo. Con eso la fase F de
-> [`PLAN.md`](PLAN.md) queda cerrada. No hay código nuevo ni verificación nueva que
-> reportar, y a propósito: el trabajo abierto (APK de entrega, emulador, iOS) sigue en
-> [`PLAN.md`](PLAN.md), no aquí.
+> **Actualizado el 29 de septiembre (noche).** Por encima de la nota de la tarde: se
+> construyó el **APK de release** y se firmó con una clave local, así que la fase C₂ de
+> [`PLAN.md`](PLAN.md) queda a medio camino. Entra con su evidencia en *Evidencia de
+> verificación*. **No cambia ningún número de tests** —no hay código nuevo más allá de la
+> configuración de firma, `378a0bd`— y sobre todo: **el APK no se ha instalado**, que era
+> justo lo que faltaba. Sigue faltando, y en el mismo orden, arrancar el emulador y el
+> build de iOS.
 
 ## Resumen
 
@@ -42,6 +43,7 @@ están marcados. Ninguno se marcó sin haberse corrido.
 | Asistente IA (app) | Chat con sugerencias que preseleccionan la reserva, caso en el contrato real | 28 sep | `557c317` |
 | Prueba real de Gemini | `/api/asistente` de punta a punta contra Google, 7 llamadas | 29 sep | `bc42218` |
 | Trazabilidad heurística | `heuristics.md` con el mapeo del chat del asistente, 13 decisiones | 29 sep | — |
+| APK de release | `flutter build apk --release` con firma local, 55 MB, y `build.gradle.kts` leyéndola de `key.properties` | 29 sep | `378a0bd` |
 
 Dos commits quedan fuera de la tabla porque no construyen funcionalidad: `ddb4058`
 (documentación de estado y trazabilidad heurística) y `61ec5cc` (alinear configuración y
@@ -65,17 +67,50 @@ repitieron en esta máquina el 29 de septiembre.
 | CI en `main` | **4 de 4 jobs en verde** (28 sep) |
 | **Prueba real de Gemini** | **`POST /api/asistente` con `LLM_PROVEEDOR=gemini` responde `motor:"gemini"` contra Google, de punta a punta** (29 sep, local, ver abajo) |
 | `flutter build apk --debug` | **BUILD SUCCESSFUL in 31m11s** (28 sep) |
-| APK con `aapt2` y `apksigner` | `com.goaltime.goaltime_flutter` 1.0.0 · target 36 · 3 ABIs · firmado |
+| APK de debug con `aapt2` y `apksigner` | `com.goaltime.goaltime_flutter` 1.0.0 · target 36 · 3 ABIs · firmado |
+| `flutter build apk --release` | **terminó, 55 MB** (29 sep, local) |
+| **APK de release** | **`com.goaltime.goaltime_flutter` 1.0.0 · target 36 · 3 ABIs · firmado con `CN=GoalTime Local`, no con la clave de debug** (29 sep, local, ver abajo) |
 
 Los cuatro jobs se llaman `Backend (SQLite)`, `Backend (PostgreSQL, migraciones y
 anti-drift)`, `App (analyze + tests)` e `integracion`, que en la interfaz de GitHub
 aparece como *Contrato app ↔ backend real*.
 
-Las filas del **APK** y de la **prueba real de Gemini** no las cubre CI: son de esta
-máquina. El APK es de **debug**, son 164 MB porque lleva las tres ABIs y los símbolos, y
-está firmado con el certificado de debug, que basta para instalarlo por sideload.
-**Construirlo no es lo mismo que haberlo probado:** todavía no se instaló ni se ejecutó,
-que es el hueco 1.
+Las filas de los **APK** y de la **prueba real de Gemini** no las cubre CI: son de esta
+máquina. Hay dos APKs, y conviene no confundirlos. El de **debug** son 164 MB porque lleva
+las tres ABIs y los símbolos, y va firmado con el certificado de debug. El de **release**
+son 55 MB porque va compilado a código de máquina por AOT, sin símbolos, y va firmado con
+un keystore local desechable generado para esto.
+
+Las dos versiones **contienen ya el asistente**, que es la diferencia real contra el APK
+de la fase C₁: ese era de antes del módulo. **Construir un APK no es lo mismo que haberlo
+probado:** ni el de debug ni el de release se han instalado ni ejecutado, que es el hueco
+1 y sigue abierto.
+
+### APK de release (29 de septiembre de 2026)
+
+Se generó `android/goaltime-local.jks` con `keytool` y su `key.properties`, y
+`android/app/build.gradle.kts` se cambió para que la firma de release salga de ese archivo,
+con la de debug como reserva si no está (`378a0bd`). Eso quita el `TODO` de Flutter que
+pedía editar el build a mano cada vez que cambiaba la clave, y deja el repo clonado
+construyendo sin pasos extra: `key.properties` y `**/*.jks` están en `android/.gitignore`
+desde antes, así que **la clave no se versiona y no debe versionarse**.
+
+La firma se comprobó por fuera: no se vio nada más.
+
+| Comprobación | Resultado |
+|---|---|
+| `apksigner verify --print-certs` | `Signer #1 certificate DN: CN=GoalTime Local, OU=Curso, O=GoalTime, L=Riohacha, ST=La Guajira, C=CO` |
+| `aapt2 dump badging` | `com.goaltime.goaltime_flutter` 1.0.0 · target SDK 36 · `arm64-v8a`, `armeabi-v7a`, `x86` |
+| Tamaño | 55 MB, con `libapp.so` en las tres ABIs |
+| SHA-1 | junto al APK, en `app-release.apk.sha1` |
+
+Las tres ABIs son deliberadas: `x86` es lo que necesita el emulador y `arm64-v8a` lo que
+necesita un teléfono físico, así que el mismo archivo sirve para los dos.
+
+**Lo que esto no prueba.** Nada de lo anterior es una prueba de que la app funcione: es
+la misma distinción de siempre entre construir y correr. El `adb install` sigue sin
+hacerse y, con él, el recorrido completo, las capturas y el cierre del hueco 1. Por eso la
+fase C₂ está **a medias** en [`PLAN.md`](PLAN.md), no hecha.
 
 ### Prueba real de Gemini (29 de septiembre de 2026)
 
@@ -157,15 +192,18 @@ Cada una está argumentada en el sitio al que apunta; aquí sólo está el índi
 
 Lo que el proyecto **no** hace, escrito sin adornos.
 
-1. **La app no se ha ejecutado en un dispositivo: no hay capturas.** El APK **sí** se
-   construyó y se verificó (28 sep, ver *Evidencia de verificación*), pero **instalarlo y
-   verlo correr sigue sin hacerse**, y sin eso no hay ni una captura. El toolchain de
-   Android está instalado y con las licencias aceptadas —SDK 36, emulador 37.1.11, imagen
-   de sistema `android-34` y un AVD llamado `cel_test`—, y `/dev/kvm` está presente, así que
-   la aceleración por hardware está disponible. Lo que no llegó a pasar es **arrancar el
-   emulador**: con 2 núcleos y 3.7 GB de RAM no se intentó. Queda como tarea manual, con
-   las instrucciones en [`ENTORNO.md`](ENTORNO.md#emulador-de-android) y planificada como
-   fase D en [`PLAN.md`](PLAN.md).
+1. **La app no se ha ejecutado en un dispositivo: no hay capturas.** Hay **dos APKs, y
+   los dos se construyeron y se verificaron por fuera**: el de debug el 28 sep y el de
+   release el 29, firmado ya con la clave local. Pero **instalar y verlos correr sigue sin
+   hacerse**, y sin eso no hay ni una captura; a estas alturas es el único hueco que
+   impide cerrar la entrega. El toolchain de Android está instalado y con las licencias
+   aceptadas —SDK 36, emulador 37.1.11, imagen de sistema `android-34` y un AVD llamado
+   `cel_test`—, y `/dev/kvm` está presente, así que la aceleración por hardware está
+   disponible. Lo que no llegó a pasar es **arrancar el emulador**: con 2 núcleos y 3.7 GB
+   de RAM no se intentó. Queda como tarea manual, con las instrucciones en
+   [`ENTORNO.md`](ENTORNO.md#emulador-de-android) y planificada como fase D en
+   [`PLAN.md`](PLAN.md). Ahora que existe el APK de release, es también la fase que
+   instala el que de verdad se entregaría.
    **Un requisito que este hueco no mencionaba y que bloquea el APK**: faltaba CMake
    3.22.1, que exige la cadena `flutter_secure_storage` → `jni` → C++ nativo. Está
    documentado en [`ENTORNO.md`](ENTORNO.md#problemas-que-ya-ocurrieron-de-verdad) y ya
