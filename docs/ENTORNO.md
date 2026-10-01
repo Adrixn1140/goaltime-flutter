@@ -36,6 +36,14 @@ Docker levanta PostgreSQL y la API al mismo tiempo. Con 16 GB se puede correr el
 emulador, la API y el contrato real a la vez, que es la diferencia entre probar y
 verificar.
 
+**Los 3.7 GB de este equipo alcanzan para el teléfono físico, no para el emulador.**
+Medido el 1 de octubre de 2026 con Docker levantado: `free -h` daba 3.7 GB totales, ya
+ocupados 1.7 GB por otros procesos, 2 GB disponibles. Sumando los 1536 MB que pide el AVD
+no da, y por el mismo motivo tampoco corre el contrato real —el kernel mata
+`flutter_tester`—. Por eso las dos pruebas van separadas: el teléfono se prueba aquí, y el
+emulador en un equipo con 16 GB. Estáexplainado en
+[`PRUEBA-EN-DISPOSITIVO.md`](PRUEBA-EN-DISPOSITIVO.md).
+
 ### El requisito que no está en la tabla: `org.gradle.jvmargs`
 
 **Verificado el 27 de septiembre de 2026: el build sí se completa con el valor ajustado.**
@@ -349,14 +357,32 @@ sobre el hardware de verdad. Requiere tres cosas: habilitar *Opciones de desarro
 `flutter devices` lo ve por USB y se lanza con la IP del equipo en el LAN:
 
 ```sh
-flutter run --dart-define=API_BASE_URL=http://192.168.18.21:5000
+flutter run --dart-define=API_BASE_URL=http://192.168.18.23:5000
 ```
 
-`192.168.18.21` hay que cambiarlo por la IP real del equipo. Está en
-`ip addr | grep 'inet '` en Linux, `ipconfig` en Windows y `ipconfig getifaddr en0` en
-macOS. El teléfono y el equipo tienen que estar en la misma red, y algunos routers
-aislan el tráfico entre clientes: si la app no conecta, es lo primero que hay que
-descartar.
+La IP hay que cambiarla por la real del equipo. Está en `ip -4 -brief addr | grep -v
+LOOPBACK` en Linux, `ipconfig` en Windows y `ipconfig getifaddr en0` en macOS. El teléfono
+y el equipo tienen que estar en la misma red, y algunos routers aíslan el tráfico entre
+clientes: si la app no conecta, es lo primero que hay que descartar.
+
+**Y hay una cuarta cosa que no es evidente: esa IP tiene que estar en
+`android/app/src/main/res/xml/network_security_config.xml`**, que es la lista explícita de
+hosts a los que Android permite HTTP plano desde la 9. Si la IP no está ahí, la conexión se
+corta aunque el backend esté perfecto. El `base-config` de ese archivo va en `false` a
+propósito, para que producción siga yendo por HTTPS.
+
+**Verificado el 1 de octubre de 2026** que en este equipo la IP del LAN es `192.168.18.23`
+y que había cambiado respecto a la que estaba en el allowlist — de `192.168.18.21` a
+`192.168.18.23` por DHCP. Por eso conviene **reservar la IP por DHCP en el router**: el
+APK la lleva horneada y, si el router la reasigna, deja de conectar sin ningún aviso.
+
+El paso a paso completo, con las comprobaciones sobre el binario y el diagnóstico de "no
+carga datos", está en
+[`PRUEBA-EN-DISPOSITIVO.md`](PRUEBA-EN-DISPOSITIVO.md). Ahí está también el motivo, medido
+sobre el APK, de por qué el release del 29 de septiembre **no podía funcionar en un
+teléfono**: `flutter build apk --release` no declara `android.permission.INTERNET`
+—Flutter lo añade sólo en debug y profile— y hornea `http://10.0.2.2:5000`, que es el
+alias del emulador.
 
 ## Correr las verificaciones
 
@@ -480,7 +506,16 @@ Para que nadie confunde una instrucción con una comprobación:
   corresponde por versión, y hay que ajustarlas a la máquina.
 - **El arranque del emulador**: el AVD, la imagen de sistema y `/dev/kvm` están
   verificados uno por uno, pero nunca se arrancó el emulador completo. El arranque en
-  un equipo con 3.7 GB de RAM es lo menos probado de este documento.
+  un equipo con 3.7 GB de RAM es lo menos probado de este documento. Se planifica en un
+  equipo con 16 GB, en la fase D2 de [`PLAN.md`](PLAN.md), porque el motivo está medido: el
+  emulador pide 1536 MB por AVD sobre 3.7 GB ya ocupados.
+- **La instalación del APK en un teléfono**: lo verificado es el binario —permiso
+  `INTERNET`, URL del LAN horneada y firma—, pero `adb install` y el recorrido sobre el
+  hardware siguen sin hacerse. Son la fase D1 de [`PLAN.md`](PLAN.md), con la guía en
+  [`PRUEBA-EN-DISPOSITIVO.md`](PRUEBA-EN-DISPOSITIVO.md).
+- **Que la IP del allowlist sobreviva a un reinicio del router**: está corregida para la
+  IP que tenía el equipo el 1 de octubre de 2026, pero la reserva por DHCP hay que
+  configurarla en el router, y eso está fuera de este repositorio.
 - **Qué SÍ está verificado en Android**, para que lo anterior no se lea más de lo que
   dice: el 27 de septiembre de 2026 se construyó el APK de debug de punta a punta
   (`BUILD SUCCESSFUL in 31m 11s`), y se verificó con `aapt2` y `apksigner`. Es

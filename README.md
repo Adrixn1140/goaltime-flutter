@@ -36,6 +36,7 @@ contrato de construcción (no de migración).
 - [`docs/ESTADO.md`](docs/ESTADO.md) — Qué está construido y qué está comprobado, con la evidencia de verificación y los huecos conocidos
 - [`docs/PLAN.md`](docs/PLAN.md) — Qué falta por construir, en qué orden y con qué riesgo de hardware
 - [`docs/ENTORNO.md`](docs/ENTORNO.md) — Versiones exactas e instalación paso a paso para ejecutar el proyecto en Linux, Windows o macOS
+- [`docs/PRUEBA-EN-DISPOSITIVO.md`](docs/PRUEBA-EN-DISPOSITIVO.md) — Cómo probar la app en un teléfono real y en el emulador, en otra PC, con los tres bloqueos que hacen perder una tarde
 - [`backend/README.md`](backend/README.md) — Cómo correr la API, variables de entorno y datos de prueba
 
 ## Estructura

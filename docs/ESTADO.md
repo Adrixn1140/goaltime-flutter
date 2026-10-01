@@ -81,10 +81,17 @@ las tres ABIs y los símbolos, y va firmado con el certificado de debug. El de *
 son 55 MB porque va compilado a código de máquina por AOT, sin símbolos, y va firmado con
 un keystore local desechable generado para esto.
 
-Las dos versiones **contienen ya el asistente**, que es la diferencia real contra el APK
-de la fase C₁: ese era de antes del módulo. **Construir un APK no es lo mismo que haberlo
-probado:** ni el de debug ni el de release se han instalado ni ejecutado, que es el hueco
-1 y sigue abierto.
+**Y no son intercambiables: el de debug no tiene el asistente.** No es una diferencia de
+tamaño sino de contenido. El APK de debug se construyó el 28 de septiembre a la 01:03 y el
+primer commit del asistente es de las 02:41 del mismo día (`41658e2`), con la app dos horas
+más tarde (`557c317`): el binario es anterior al módulo. Se comprobó sobre el código
+compilado, no por las fechas del repo — contando el label de la cuarta pestaña
+(`cliente_shell.dart:28`), que aparece 9 veces en `libapp.so` del release y **0** en el
+`kernel_blob.bin` del debug, mientras que los labels previos (`Canchas`, `Mis reservas`,
+`Perfil`) aparecen en los dos. **Para demostrar el asistente hay que usar el de release.**
+
+**Construir un APK no es lo mismo que haberlo probado:** ninguno de los dos se ha instalado
+ni ejecutado, que es el hueco 1 y sigue abierto.
 
 ### APK de release (29 de septiembre de 2026)
 
@@ -111,6 +118,44 @@ necesita un teléfono físico, así que el mismo archivo sirve para los dos.
 la misma distinción de siempre entre construir y correr. El `adb install` sigue sin
 hacerse y, con él, el recorrido completo, las capturas y el cierre del hueco 1. Por eso la
 fase C₂ está **a medias** en [`PLAN.md`](PLAN.md), no hecha.
+
+### El APK de release del 29 de septiembre no podía hacer una sola llamada de red
+
+**Verificado el 1 de octubre de 2026, y es el hallazgo más útil de este documento.** Al
+preparar la prueba en teléfono físico se comprobó el binario con `aapt2` y `strings`, y el
+APK de release **no declaraba `android.permission.INTERNET`**:
+
+```
+$ aapt2 dump xmltree --file AndroidManifest.xml app-release.apk | grep -A3 uses-permission
+  E: uses-permission
+    A: ...:name="com.goaltime.goaltime_flutter.DYNAMIC_RECEILER_NOT_EXPORTED_PERMISSION"
+```
+
+El único permiso era el que genera una librería. Flutter declara `INTERNET` por su cuenta
+**sólo en debug y profile**; el release se arma con el `AndroidManifest.xml` del proyecto
+y nada más. Y el APK de debug **sí** lo traía — se compararon los dos lado a lado:
+
+| | `app-release.apk` | `app-debug.apk` |
+|---|---|---|
+| `android.permission.INTERNET` | **ausente** | presente |
+| `res/xml/network_security_config.xml` | **ausente** | ausente |
+| URL horneada en `libapp.so` | `http://10.0.2.2:5000` | `http://10.0.2.2:5000` |
+
+Lo segundo tampoco servía en un teléfono: `10.0.2.2` es el alias que usa el emulador para
+alcanzar al host y no resuelve en el LAN. Las dos cosas se corrigieron y se versionaron, y
+el APK se reconstruyó el 1 de octubre con la IP del equipo:
+
+```
+$ strings libapp.so | grep -E '^http://[0-9.]+:5000'
+http://192.168.18.23:5000
+```
+
+**Lo que esto corrige de lo escrito arriba:** la sección del APK de release dice que "no son
+intercambiables" por el asistente, y eso sigue siendo cierto —pero la razón de fondo era
+más grave. El de release no sólo tenía una diferencia de contenido, sino que **no podía
+hablar con el backend**. Cualquiera que hubiera leído "el APK de release está firmado y
+verificado" y lo hubiera instalado en un teléfono habría visto una app que no carga
+nada, sin mensaje. Construir y firmar, entonces, es todavía menos de lo que parecía.
 
 ### Prueba real de Gemini (29 de septiembre de 2026)
 
@@ -206,8 +251,17 @@ Lo que el proyecto **no** hace, escrito sin adornos.
    instala el que de verdad se entregaría.
    **Un requisito que este hueco no mencionaba y que bloquea el APK**: faltaba CMake
    3.22.1, que exige la cadena `flutter_secure_storage` → `jni` → C++ nativo. Está
-   documentado en [`ENTORNO.md`](ENTORNO.md#problemas-que-ya-ocurrieron-de-verdad) y ya
+   documentado en [`ENTORNO.md`](ENTORNO.md#problemas-que-ya-ocurieron-de-verdad) y ya
    está resuelto, así que no es un hueco abierto sino una trampa para quien clone el repo.
+   - **Actualizado el 1 de octubre:** este hueco se partida en dos, porque el hardware no
+     da para cerrarlo en un solo equipo. La fase **D1** es el teléfono físico y corre aquí;
+     la **D2** es el emulador y necesita un equipo con 16 GB de RAM, porque el emulador
+     pide 1536 MB por AVD sobre 3.7 GB ya ocupados. El APK de release **se reconstruyó**
+     con el permiso `INTERNET` y la URL del LAN —sin eso no podía hacer ni una llamada de
+     red, y está medido sobre el binario—, y las comprobaciones sobre ese APK nuevo están
+     en *Evidencia de verificación*. Lo que sigue abierto es exactamente lo que dice la
+     primera línea: **`adb install` y el recorrido**. El paso a paso de ambas pistas está
+     en [`PRUEBA-EN-DISPOSITIVO.md`](PRUEBA-EN-DISPOSITIVO.md).
 2. **Stripe con claves reales no está verificado.** El camino probado de punta a punta
    es el de `PAGADORA=mock`. Con claves reales además habría que exponer el webhook, que
    aquí no se puede. El código de Stripe está detrás de la interfaz `PasarelaPago` y es

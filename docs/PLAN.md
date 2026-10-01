@@ -291,12 +291,38 @@ sin haber ni una captura.
 
 ### Fase D — Emulador, instalación y capturas
 
-`emulator -avd cel_test -no-window` con **un solo `adb` en el `PATH`** (el problema que ya
-recoge `ENTORNO.md` §Problemas). Levanta el stack y apunta la app a `10.0.2.2:5000`, que ya
-es el default de `lib/core/config/api_config.dart:15`.
+Se parte en dos pistas porque el hardware no da para las dos en el mismo equipo, y la guía
+completa de ambas está en [`PRUEBA-EN-DISPOSITIVO.md`](PRUEBA-EN-DISPOSITIVO.md).
 
+#### D1 — Teléfono físico (este equipo, 8 GB o menos)
+
+El APK de release **no se podía probar tal como salió el 29 de septiembre**, y el motivo
+está medido sobre el binario: `flutter build apk --release` no declara
+`android.permission.INTERNET` —Flutter lo añade solo en debug y profile—, así que la app
+no podía hacer una sola llamada de red. Además la URL horneada era `http://10.0.2.2:5000`,
+que es el alias del emulador y no resuelve en el LAN. Las dos cosas ya están corregidas y
+versionadas, y el APK se reconstruyó con la IP del equipo.
+
+- [x] Permiso `INTERNET` y `networkSecurityConfig` declarados y versionados, junto con
+      `res/xml/network_security_config.xml` (los tres o ninguno: el manifiesto apunta al XML)
+- [x] `res/xml/network_security_config.xml` con la IP real del equipo, no la anterior
+- [x] `flutter build apk --release --dart-define=API_BASE_URL=http://192.168.18.23:5000`
+- [x] Verificado sobre el binario: permiso presente, URL del LAN horneada, firma válida
+- [ ] `adb install` y recorrido real en el teléfono
 - [ ] Capturas de los tres recorridos de `README.md` §Recorridos
 - [ ] Cierra el hueco 1 de `ESTADO.md`
+
+#### D2 — Emulador (otro equipo, 16 GB)
+
+Aquí el camino es más corto: `flutter run` en debug ya trae el permiso `INTERNET` y el
+default `10.0.2.2` alcanza al host. El motivo de necesitar otro equipo es la RAM, medido en
+este: el emulador pide 1536 MB por AVD sobre 3.7 GB ya ocupados, y ahí tampoco corre el
+contrato real.
+
+- [ ] Crear el AVD en ese equipo: `cel_test` vive en `~/.android/avd/`, fuera del repo, así
+      que un clon no lo trae
+- [ ] `emulator -avd cel_test -no-window` con **un solo `adb` en el `PATH`**
+- [ ] Capturas de los tres recorridos en el emulador
 - [ ] `flutter_tester` con el contrato real, ahora que hay RAM de sobra
 
 ### Fase E — iOS, en la Mac
@@ -333,7 +359,7 @@ entrega del plan de referencia de CanchaYa; la del medio, los huecos que el prop
 | 3. Dueño aislado por `dueno_id` | ya estaba | — |
 | 4. Admin ve todo y cambia roles | ya estaba | — |
 | 5. **Asistente IA con disponibilidad real** | **hecho** | A + B (28 sep) + prueba real (29 sep) |
-| 6. APK instalable + build de iOS | **a medias** | **C₂** (Android) · **E** (iOS) |
+| 6. APK instalable + build de iOS | **a medias** | **C₂** + **D1** (Android) · **E** (iOS) |
 | 7. Documentación con heurísticas por pantalla | **hecho** | F (29 sep, incluye el chat) |
 
 El delta real contra aquel plan era el ítem 5, y se cerró con las fases A y B de este plan
