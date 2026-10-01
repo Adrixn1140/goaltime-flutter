@@ -1,8 +1,11 @@
-# Probar GoalTime en un teléfono real y en el emulador
+# Por qué probar la app cuesta: los tres bloqueos
 
-Este documento es el paso a paso para ejecutar la app en hardware y para cerrar las
-capturas. Complementa a [`ENTORNO.md`](ENTORNO.md), que instala el toolchain; aquí sólo
-está lo que pasa **después** de tener Flutter y el SDK instalados.
+Este documento es la referencia técnica de **qué impide que la app funcione en un
+dispositivo y cómo se diagnostica**. Para instalar y levantar el proyecto, empezar por
+[`PUTA-EN-MARCHA.md`](PUTA-EN-MARCHA.md); aquí no se repite el arranque.
+
+Se escribió al intentar la prueba y no salir. Las tres cosas de abajo son reales, las tres
+quedan **grabadas en el binario**, y ninguna se ve leyendo el código Dart.
 
 Hay dos pistas y son independientes entre sí, de modo que cada equipo necesita sólo la
 suya:
@@ -20,10 +23,19 @@ Cada bloque va marcado con su grado de confianza, igual que en `ENTORNO.md`:
 
 ---
 
-## Los tres bloqueos que hacen perder una tarde
+## Los tres bloqueos, en una línea cada uno
 
-Léelos antes de compilar nada. Los tres son reales, los tres seestringido en el binario, y
-ninguno se ve leyendo el código Dart.
+1. **El APK de release no declara `INTERNET`** → no hace ni una llamada de red. Flutter lo
+   añade sólo en debug y profile.
+2. **La URL del backend se hornea en el binario** → un APK sirve para un solo destino.
+3. **Android 9+ bloquea el HTTP plano** → la lista de hosts permitidos es explícita y hay
+   que añadir la IP del equipo.
+
+Los tres detalles de cada uno están abajo, con el dato medido.
+
+---
+
+## Los tres en detalle
 
 ### 1. El APK de release no trae permiso `INTERNET`
 
@@ -216,7 +228,7 @@ flutter build apk --release --dart-define=API_BASE_URL=http://192.168.18.23:5000
 ```
 
 El build tardó **31 minutos** en este equipo de 2 núcleos y 3.7 GB de RAM; en una máquina
-de 8 GB o más son minutos ([`ENTORNO.md`](ENTORNO.md#el-requisito-que-no-está-en-la-tabla-orggradlejvmargs)).
+de 8 GB o más son minutos ([`ENTORNO.md`](ENTORNO.md#el-requisito-que-no-esta-en-la-tabla-orggradlejvmargs)).
 Para iterar rápido es mejor `flutter run`, que además instala y hot-reloada.
 
 ### 5. Instalar y verificar
@@ -277,6 +289,15 @@ En orden, porque cada paso descarta algo más:
 ---
 
 ## Pista B — Emulador, en un equipo con RAM
+
+> **El arranque del emulador va en [`PUTA-EN-MARCHA.md`](PUTA-EN-MARCHA.md#fase-2--la-app-en-el-emulador).**
+> Aquí sólo queda por qué necesita otro equipo. Para este documento, la Pista B es un dato
+> de contexto: la parte interesante es la Pista A.
+
+El motivo está medido, no supuesto. El emulador pide **1536 MB por AVD**, y en el equipo
+donde se construyó había 2 núcleos y 3.7 GB de RAM con 1.7 GB ya ocupados por otros
+procesos. La suma no da. Por el mismo motivo tampoco corría ahí el contrato real de la
+app: el kernel mata `flutter_tester`.
 
 ### El AVD no viaja con el repositorio
 
@@ -344,9 +365,13 @@ habla con la red— pero conviene saberlo antes de leer un verde como una verifi
 ## Qué sigue sin verificarse
 
 - **La instalación del APK en un teléfono real.** Las comprobaciones sobre el binario
-  (permiso, URL, firma) están hechas; el `adb install` y el recorrido, no. Son la fase D1
-  del plan.
-- **El arranque del emulador en este equipo.** El AVD, la imagen y `/dev/kvm` están
-  verificados uno por uno, pero nunca se arrancó completo aquí. En el equipo de 16 GB
-  tampoco se ha hecho todavía; es la fase D2.
+  (permiso, URL, firma) están hechas; el `adb install` y el recorrido, no. Se intentó el
+  1 de octubre de 2026 y **falló por hardware**: el teléfono era Android 10, que no tiene
+  depuración inalámbrica —función de Android 11+—, y por USB el kernel no logró enumerar
+  el dispositivo (`Cannot enable. Maybe the USB cable is bad?`). No es un problema de
+  software: el fallo ocurre en la enumeración USB, antes de que udev entre en juego. Es la
+  fase D1 del plan y queda bloqueada.
+- **El arranque del emulador.** El AVD, la imagen y `/dev/kvm` están verificados uno por
+  uno, pero **nunca se arrancó un emulador completo**. Es la fase D2 y la otra PC es el
+  sitio donde se cierra.
 - **iOS.** No compilado, y `flutter build ios` necesita macOS con Xcode.

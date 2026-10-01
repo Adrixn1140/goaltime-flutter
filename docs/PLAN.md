@@ -294,36 +294,56 @@ sin haber ni una captura.
 Se parte en dos pistas porque el hardware no da para las dos en el mismo equipo, y la guía
 completa de ambas está en [`PRUEBA-EN-DISPOSITIVO.md`](PRUEBA-EN-DISPOSITIVO.md).
 
-#### D1 — Teléfono físico (este equipo, 8 GB o menos)
+#### D1 — Teléfono físico — **BLOQUEADA por hardware (1 de octubre de 2026)**
 
-El APK de release **no se podía probar tal como salió el 29 de septiembre**, y el motivo
-está medido sobre el binario: `flutter build apk --release` no declara
-`android.permission.INTERNET` —Flutter lo añade solo en debug y profile—, así que la app
-no podía hacer una sola llamada de red. Además la URL horneada era `http://10.0.2.2:5000`,
-que es el alias del emulador y no resuelve en el LAN. Las dos cosas ya están corregidas y
-versionadas, y el APK se reconstruyó con la IP del equipo.
+Intentada y **no completada**, por una causa externa al proyecto. Distinguir esto de
+"pendiente" importa para el informe: no es una casilla vacía, es un intento con evidencia.
+
+**Lo que se intentó y por qué falló.** El teléfono disponible es **Android 10**, que no
+tiene depuración inalámbrica —esa función llegó en Android 11—. Por USB el kernel no logra
+enumerar el dispositivo:
+
+```
+usb 1-2: Cannot enable. Maybe the USB cable is bad?
+usb 1-2: attempt power cycle
+usb 1-2: unable to enumerate USB device
+```
+
+`lsusb` no lo ve y `adb devices` queda vacío. **No es un problema de software**, y está
+descartado: el usuario está en el grupo `plugdev` y el fallo ocurre en la enumeración USB,
+antes de que udev entre en juego. Es cable, puerto o un teléfono accesible en otro equipo.
+
+**Lo que sí quedó hecho y verificado**, y que es lo que hace falta para cerrarla:
 
 - [x] Permiso `INTERNET` y `networkSecurityConfig` declarados y versionados, junto con
       `res/xml/network_security_config.xml` (los tres o ninguno: el manifiesto apunta al XML)
 - [x] `res/xml/network_security_config.xml` con la IP real del equipo, no la anterior
 - [x] `flutter build apk --release --dart-define=API_BASE_URL=http://192.168.18.23:5000`
-- [x] Verificado sobre el binario: permiso presente, URL del LAN horneada, firma válida
-- [ ] `adb install` y recorrido real en el teléfono
-- [ ] Capturas de los tres recorridos de `README.md` §Recorridos
-- [ ] Cierra el hueco 1 de `ESTADO.md`
+      → 55.4 MB, `BUILD SUCCESSFUL`, firmado, SHA-1 `4d52f9ca…`
+- [x] Verificado sobre el binario: permiso `INTERNET` presente, URL del LAN horneada,
+      firma `CN=GoalTime Local`
+- [ ] `adb install` y recorrido real en el teléfono — **requiere hardware que funcione**
+- [ ] Capturas de los recorridos desde el teléfono — se cierran en D2 si D1 no se puede
 
-#### D2 — Emulador (otro equipo, 16 GB)
+#### D2 — Emulador (otro equipo, 16 GB) — **la vía que cierra la entrega**
 
-Aquí el camino es más corto: `flutter run` en debug ya trae el permiso `INTERNET` y el
-default `10.0.2.2` alcanza al host. El motivo de necesitar otro equipo es la RAM, medido en
-este: el emulador pide 1536 MB por AVD sobre 3.7 GB ya ocupados, y ahí tampoco corre el
-contrato real.
+El camino aquí es más corto: `flutter run` en debug ya trae el permiso `INTERNET` y el
+default `10.0.2.2` alcanza al host, así que no hay que tocar ni manifiesto ni allowlist.
+El motivo de necesitar otro equipo es la RAM, medido en este: el emulador pide 1536 MB por
+AVD sobre 3.7 GB ya ocupados, y ahí tampoco corría el contrato real.
 
-- [ ] Crear el AVD en ese equipo: `cel_test` vive en `~/.android/avd/`, fuera del repo, así
-      que un clon no lo trae
-- [ ] `emulator -avd cel_test -no-window` con **un solo `adb` en el `PATH`**
-- [ ] Capturas de los tres recorridos en el emulador
-- [ ] `flutter_tester` con el contrato real, ahora que hay RAM de sobra
+Instrucciones completas y con verificación por fase en
+[`PUTA-EN-MARCHA.md`](PUTA-EN-MARCHA.md).
+
+- [ ] Fase 1: `tool/verificar_integracion.sh` levanta backend, migra, siembra y corre el
+      contrato. Termina con "Contrato verificado contra el backend real."
+- [ ] Crear el AVD: `cel_test` vive en `~/.android/avd/`, fuera del repo, así que un clon
+      en otra máquina no lo trae
+- [ ] `emulator -avd cel_test -no-window` con **un solo `adb` en el `PATH`**, y `flutter run`
+- [ ] Capturas de los tres recorridos → cierra el hueco 1b de `ESTADO.md`
+- [ ] `flutter_tester` con el contrato real en local, ahora que hay RAM de sobra → cierra
+      el hueco 4
+- [ ] `flutter build apk --release` y verificación con `aapt2`/`apksigner`
 
 ### Fase E — iOS, en la Mac
 
@@ -372,10 +392,11 @@ y el build de iOS sigue siendo fase E sin empezar. De los siete, seis cerrados.
 
 | Hueco | ¿Lo cierra este plan? |
 |---|---|
-| 1. Capturas de la app | **Sí** — fase D |
+| 1a. App ejecutada en un dispositivo | **Sí** — fase D1, **bloqueada por hardware** el 1 oct 2026 |
+| 1b. Capturas de la app | **Sí** — fase D2, el emulador en la otra PC |
 | 2. Stripe con claves reales | No — sin acceso a exponer el webhook |
 | 3. Mensaje del `401` de cuenta desactivada | No — se documentó a propósito, corregirlo cambia el contrato |
-| 4. El contrato real no corre en local | Parcialmente — la causa era RAM, y la fase D la resuelve |
+| 4. El contrato real no corre en local | **Sí** — fase D2; la causa era RAM y por eso va en el equipo grande |
 | 5. El contrato se omite en silencio sin `GOALTIME_API_URL` | No — es deliberado, ya justificado |
 | 6. Helpers de token duplicados en 4 tests | No — deuda de tests, no de funcionalidad |
 

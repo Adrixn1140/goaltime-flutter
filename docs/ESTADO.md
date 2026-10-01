@@ -1,10 +1,23 @@
 # Estado de la aplicación
 
-**Snapshot al 29 de septiembre de 2026 (noche).** No es un documento de contrato ni una
+**Snapshot al 1 de octubre de 2026.** No es un documento de contrato ni una
 especificación: el contrato es [`spec.md`](spec.md) y la evaluación de diseño es
 [`heuristics.md`](heuristics.md). Este archivo existe para responder, de una vez, *qué
 está construido y qué está comprobado*, con la fecha y la evidencia. Si algo aquí
 contradice a la spec, manda la spec.
+
+> **Actualizado el 1 de octubre.** Se intentó ejecutar la app en un teléfono físico y **no
+> se completó**: el teléfono era Android 10, sin depuración inalámbrica, y por USB el
+> kernel no logró enumerarlo. El hueco 1 queda dividido en 1a y 1b y **ninguno se da por
+> cerrado**. Lo que sí entró fue el hallazgo de que el APK de release del 29 de septiembre
+> **no declaraba el permiso `INTERNET`**, medido sobre el binario con `aapt2`: sin él la
+> app no podía hacer una sola llamada de red. Está corregido, versionado y el APK
+> reconstruido con la URL del LAN, todo verificado sobre el archivo. El detalle está en
+> *Evidencia de verificación* y en
+> [`PRUEBA-EN-DISPOSITIVO.md`](PRUEBA-EN-DISPOSITIVO.md).
+>
+> **La puesta en marcha completa en otra máquina** —que es donde se cierra la fase D— está
+> en [`PUTA-EN-MARCHA.md`](PUTA-EN-MARCHA.md), en cuatro fases con su verificación.
 
 > **Actualizado el 29 de septiembre (noche).** Por encima de la nota de la tarde: se
 > construyó el **APK de release** y se firmó con una clave local, así que la fase C₂ de
@@ -237,31 +250,40 @@ Cada una está argumentada en el sitio al que apunta; aquí sólo está el índi
 
 Lo que el proyecto **no** hace, escrito sin adornos.
 
-1. **La app no se ha ejecutado en un dispositivo: no hay capturas.** Hay **dos APKs, y
-   los dos se construyeron y se verificaron por fuera**: el de debug el 28 sep y el de
-   release el 29, firmado ya con la clave local. Pero **instalar y verlos correr sigue sin
-   hacerse**, y sin eso no hay ni una captura; a estas alturas es el único hueco que
-   impide cerrar la entrega. El toolchain de Android está instalado y con las licencias
-   aceptadas —SDK 36, emulador 37.1.11, imagen de sistema `android-34` y un AVD llamado
-   `cel_test`—, y `/dev/kvm` está presente, así que la aceleración por hardware está
-   disponible. Lo que no llegó a pasar es **arrancar el emulador**: con 2 núcleos y 3.7 GB
-   de RAM no se intentó. Queda como tarea manual, con las instrucciones en
-   [`ENTORNO.md`](ENTORNO.md#emulador-de-android) y planificada como fase D en
-   [`PLAN.md`](PLAN.md). Ahora que existe el APK de release, es también la fase que
-   instala el que de verdad se entregaría.
-   **Un requisito que este hueco no mencionaba y que bloquea el APK**: faltaba CMake
-   3.22.1, que exige la cadena `flutter_secure_storage` → `jni` → C++ nativo. Está
-   documentado en [`ENTORNO.md`](ENTORNO.md#problemas-que-ya-ocurieron-de-verdad) y ya
-   está resuelto, así que no es un hueco abierto sino una trampa para quien clone el repo.
-   - **Actualizado el 1 de octubre:** este hueco se partida en dos, porque el hardware no
-     da para cerrarlo en un solo equipo. La fase **D1** es el teléfono físico y corre aquí;
-     la **D2** es el emulador y necesita un equipo con 16 GB de RAM, porque el emulador
-     pide 1536 MB por AVD sobre 3.7 GB ya ocupados. El APK de release **se reconstruyó**
-     con el permiso `INTERNET` y la URL del LAN —sin eso no podía hacer ni una llamada de
-     red, y está medido sobre el binario—, y las comprobaciones sobre ese APK nuevo están
-     en *Evidencia de verificación*. Lo que sigue abierto es exactamente lo que dice la
-     primera línea: **`adb install` y el recorrido**. El paso a paso de ambas pistas está
-     en [`PRUEBA-EN-DISPOSITIVO.md`](PRUEBA-EN-DISPOSITIVO.md).
+1. **La app no se ha ejecutado en un dispositivo: no hay capturas.** Esto se intentó y
+   **falló por hardware**, así que conviene separar lo que se intentó de lo que quedó
+   hecho.
+
+   **1a — App ejecutada en un teléfono físico: abierto y bloqueado.** El teléfono
+   disponible es **Android 10**, que no tiene depuración inalámbrica —esa función llegó en
+   Android 11—, y por USB el kernel no logra enumerarlo:
+
+   ```
+   usb 1-2: Cannot enable. Maybe the USB cable is bad?
+   usb 1-2: unable to enumerate USB device
+   ```
+
+   `lsusb` no lo ve y `adb devices` queda vacío. **No es software**: el usuario está en
+   `plugdev` y el fallo ocurre en la enumeración USB, antes de udev. Es la fase D1 de
+   [`PLAN.md`](PLAN.md) y queda **bloqueada**, no pendiente — hay evidencia del intento.
+
+   **1b — Capturas de la app: abierto, lo cierra el emulador.** El toolchain de Android
+   está instalado y con licencias aceptadas —SDK 36, emulador 37.1.11, imagen
+   `android-34`, AVD `cel_test`— y `/dev/kvm` está presente. Lo que nunca se arrancó es un
+   emulador completo: con 2 núcleos y 3.7 GB de RAM no se intentó, porque el emulador pide
+   1536 MB por AVD sobre 1.7 GB ya ocupados. Va en la otra PC, en la fase D2, con la guía
+   completa en [`PUTA-EN-MARCHA.md`](PUTA-EN-MARCHA.md).
+
+   **1c — El APK de release del 29 de septiembre no podía hacer una sola llamada de red.**
+   No declaraba `android.permission.INTERNET` —Flutter lo añade sólo en debug y profile—,
+   lo que se comprobó con `aapt2` sobre el archivo. Sin ese permiso la app no habla con
+   nada. **Corregido y versionado el 1 de octubre**, junto con el
+   `network_security_config.xml` que faltaba y con la URL del LAN horneada. Entra con su
+   evidencia en *Evidencia de verificación*.
+
+   **Una trampa para quien clone el repo, ya resuelta:** faltaba CMake 3.22.1, que exige la
+   cadena `flutter_secure_storage` → `jni` → C++ nativo. `sdkmanager "cmake;3.22.1"` lo
+   resuelve y está en [`PUTA-EN-MARCHA.md`](PUTA-EN-MARCHA.md#3-android-sdk).
 2. **Stripe con claves reales no está verificado.** El camino probado de punta a punta
    es el de `PAGADORA=mock`. Con claves reales además habría que exponer el webhook, que
    aquí no se puede. El código de Stripe está detrás de la interfaz `PasarelaPago` y es
@@ -273,9 +295,12 @@ Lo que el proyecto **no** hace, escrito sin adornos.
    de login y no en el `SnackBar` donde ocurrió el error. Se documenta en vez de
    arreglarse: corregirlo exigiría distinguir en la app dos `401` con el mismo código, y
    el beneficio no compensaba el cambio de contrato.
-4. **El contrato real no se puede ejecutar en la máquina de desarrollo.**
+4. **El contrato real no se puede ejecutar en esta máquina de desarrollo.**
    `flutter_tester` no sobrevive a la red real con 3.7 GB de RAM y el swap lleno: el
-   kernel lo mata y `flutter_tools` reporta `did not complete`. Corre en CI, que es
+   kernel lo mata y `flutter_tools` reporta `did not complete`. **No es un hueco de
+   software: es RAM**, y la fase D2 lo cierra con un solo comando en el equipo de 16 GB:
+   `GOALTIME_API_URL=http://127.0.0.1:5000 flutter test test/contrato_real_test.dart`.
+   Hasta que corra allá, corre en CI, que es
    donde está en el workflow.
 5. **El contrato se omite en silencio cuando falta `GOALTIME_API_URL`.** En el job
    `app` los 9 tests aparecen como `skipped` y el job sigue verde. Es deliberado —sin
