@@ -17,7 +17,9 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'Iniciar sesión'), findsOneWidget);
   });
 
-  testWidgets('con sesión guardada entra directo a las canchas', (tester) async {
+  testWidgets('con sesión guardada entra directo a las canchas', (
+    tester,
+  ) async {
     final api = FakeApi();
     canchasDePrueba(api);
 
@@ -26,13 +28,18 @@ void main() {
 
     expect(find.widgetWithText(FilledButton, 'Iniciar sesión'), findsNothing);
     expect(find.text('Cancha El Retiro'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Cancha Laquina'), 200);
     expect(find.text('Cancha Laquina'), findsOneWidget);
   });
 
-  testWidgets('el formulario valida antes de llamar al backend', (tester) async {
+  testWidgets('el formulario valida antes de llamar al backend', (
+    tester,
+  ) async {
     final api = FakeApi();
 
-    await tester.pumpWidget(appDePrueba(api, storage: TokenStorage(MemoriaSegura())));
+    await tester.pumpWidget(
+      appDePrueba(api, storage: TokenStorage(MemoriaSegura())),
+    );
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).first, 'no-es-correo');
@@ -43,35 +50,55 @@ void main() {
     expect(api.peticiones, isEmpty);
   });
 
-  testWidgets('una contraseña corta de registro se explica antes de enviar', (tester) async {
+  testWidgets('una contraseña corta de registro se explica antes de enviar', (
+    tester,
+  ) async {
     final api = FakeApi();
 
-    await tester.pumpWidget(appDePrueba(api, storage: TokenStorage(MemoriaSegura())));
+    await tester.pumpWidget(
+      appDePrueba(api, storage: TokenStorage(MemoriaSegura())),
+    );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('¿No tienes cuenta? Regístrate'));
     await tester.tap(find.text('¿No tienes cuenta? Regístrate'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(0), 'Ana Cliente');
     await tester.enterText(find.byType(TextFormField).at(1), 'ana@correo.com');
     await tester.enterText(find.byType(TextFormField).at(2), 'corta');
+    await tester.ensureVisible(
+      find.widgetWithText(FilledButton, 'Crear cuenta'),
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
     await tester.pumpAndSettle();
 
-    expect(find.text('La contraseña necesita al menos 8 caracteres'), findsOneWidget);
+    expect(
+      find.text('La contraseña necesita al menos 8 caracteres'),
+      findsOneWidget,
+    );
     expect(api.peticiones, isEmpty);
   });
 
-  testWidgets('un login correcto guarda la sesión y entra a las canchas', (tester) async {
+  testWidgets('un login correcto guarda la sesión y entra a las canchas', (
+    tester,
+  ) async {
     final api = FakeApi();
     canchasDePrueba(api);
     api.responder('POST', '/api/login', {
       'access_token': 'jwt-de-prueba',
       'rol': 'cliente',
-      'usuario': {'id': 1, 'nombre': 'Ana Cliente', 'email': 'ana@correo.com', 'rol': 'cliente'},
+      'usuario': {
+        'id': 1,
+        'nombre': 'Ana Cliente',
+        'email': 'ana@correo.com',
+        'rol': 'cliente',
+      },
     });
 
-    await tester.pumpWidget(appDePrueba(api, storage: TokenStorage(MemoriaSegura())));
+    await tester.pumpWidget(
+      appDePrueba(api, storage: TokenStorage(MemoriaSegura())),
+    );
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(0), 'ana@correo.com');
@@ -83,43 +110,70 @@ void main() {
     expect(api.peticiones.first, contains('POST /api/login'));
   });
 
-  testWidgets('credenciales incorrectas se muestran con el mensaje del backend', (tester) async {
-    final api = FakeApi();
-    api.error('POST', '/api/login', 401, 'Credenciales inválidas');
+  testWidgets(
+    'credenciales incorrectas se muestran con el mensaje del backend',
+    (tester) async {
+      final api = FakeApi();
+      api.error('POST', '/api/login', 401, 'Credenciales inválidas');
 
-    await tester.pumpWidget(appDePrueba(api, storage: TokenStorage(MemoriaSegura())));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        appDePrueba(api, storage: TokenStorage(MemoriaSegura())),
+      );
+      await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'ana@correo.com');
-    await tester.enterText(find.byType(TextFormField).at(1), 'mala');
-    await tester.tap(find.widgetWithText(FilledButton, 'Iniciar sesión'));
-    // `pumpAndSettle` avanzaría el reloj lo suficiente para que el `SnackBar` se cerrara
-    // solo: aquí interesa verlo en pantalla, no esperar a que desaparezca.
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+      await tester.enterText(
+        find.byType(TextFormField).at(0),
+        'ana@correo.com',
+      );
+      await tester.enterText(find.byType(TextFormField).at(1), 'mala');
+      await tester.tap(find.widgetWithText(FilledButton, 'Iniciar sesión'));
+      // `pumpAndSettle` avanzaría el reloj lo suficiente para que el `SnackBar` se cerrara
+      // solo: aquí interesa verlo en pantalla, no esperar a que desaparezca.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.textContaining('Credenciales inválidas'), findsOneWidget);
-    // Sigue en el login: no se entra a la app con una sesión inválida.
-    expect(find.widgetWithText(FilledButton, 'Iniciar sesión'), findsOneWidget);
-  });
+      expect(find.textContaining('Credenciales inválidas'), findsOneWidget);
+      // Sigue en el login: no se entra a la app con una sesión inválida.
+      expect(
+        find.widgetWithText(FilledButton, 'Iniciar sesión'),
+        findsOneWidget,
+      );
+    },
+  );
 
-  testWidgets('registro crea la cuenta y entra con el rol cliente', (tester) async {
+  testWidgets('registro crea la cuenta y entra con el rol cliente', (
+    tester,
+  ) async {
     final api = FakeApi();
     canchasDePrueba(api);
     api.responder('POST', '/api/register', {
       'access_token': 'jwt-nuevo',
       'rol': 'cliente',
-      'usuario': {'id': 2, 'nombre': 'Nuevo Cliente', 'email': 'nuevo@correo.com', 'rol': 'cliente'},
+      'usuario': {
+        'id': 2,
+        'nombre': 'Nuevo Cliente',
+        'email': 'nuevo@correo.com',
+        'rol': 'cliente',
+      },
     });
 
-    await tester.pumpWidget(appDePrueba(api, storage: TokenStorage(MemoriaSegura())));
+    await tester.pumpWidget(
+      appDePrueba(api, storage: TokenStorage(MemoriaSegura())),
+    );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('¿No tienes cuenta? Regístrate'));
     await tester.tap(find.text('¿No tienes cuenta? Regístrate'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField).at(0), 'Nuevo Cliente');
-    await tester.enterText(find.byType(TextFormField).at(1), 'nuevo@correo.com');
+    await tester.enterText(
+      find.byType(TextFormField).at(1),
+      'nuevo@correo.com',
+    );
     await tester.enterText(find.byType(TextFormField).at(2), 'secreto123');
+    await tester.ensureVisible(
+      find.widgetWithText(FilledButton, 'Crear cuenta'),
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
     await tester.pumpAndSettle();
 
@@ -127,7 +181,9 @@ void main() {
     expect(api.peticiones.first, contains('POST /api/register'));
   });
 
-  testWidgets('cerrar sesión borra la sesión y vuelve al login', (tester) async {
+  testWidgets('cerrar sesión borra la sesión y vuelve al login', (
+    tester,
+  ) async {
     final api = FakeApi();
     canchasDePrueba(api);
     api.responder('GET', '/api/mis-reservas', <Object>[]);

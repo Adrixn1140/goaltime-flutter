@@ -10,6 +10,7 @@ import '../../features/cliente/presentation/mis_reservas_screen.dart';
 import '../../features/cliente/presentation/perfil_screen.dart';
 import '../../features/cliente/presentation/reserva_screen.dart';
 import '../../features/gestion/presentation/dueno_shell.dart';
+import '../../features/equipos/presentation/equipos_screen.dart';
 import '../../features/gestion/presentation/gestion_canchas_screen.dart';
 import '../../features/gestion/presentation/horarios_screen.dart';
 import '../../features/gestion/presentation/reservas_cancha_screen.dart';
@@ -58,10 +59,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
-      ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       ShellRoute(
         builder: (context, state, child) => ClienteShell(child: child),
         routes: [
@@ -81,12 +79,23 @@ final routerProvider = Provider<GoRouter>((ref) {
               // y llegan por query. Sin ellos (entra desde el catálogo) la pantalla
               // se comporta igual que siempre.
               fecha: state.uri.queryParameters['fecha'],
-              horarioId: int.tryParse(state.uri.queryParameters['horario_id'] ?? ''),
+              horarioId: int.tryParse(
+                state.uri.queryParameters['horario_id'] ?? '',
+              ),
             ),
           ),
           GoRoute(
             path: '/cliente/mis-reservas',
             builder: (context, state) => const MisReservasScreen(),
+          ),
+          GoRoute(
+            path: '/cliente/equipos',
+            builder: (context, state) => const EquiposScreen(),
+          ),
+          GoRoute(
+            path: '/cliente/equipos/:id',
+            builder: (context, state) =>
+                EquipoScreen(id: int.parse(state.pathParameters['id']!)),
           ),
           GoRoute(
             path: '/cliente/perfil',
@@ -103,13 +112,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/dueno/canchas/:id/horarios',
-            builder: (context, state) =>
-                HorariosScreen(canchaId: int.parse(state.pathParameters['id']!)),
+            builder: (context, state) => HorariosScreen(
+              canchaId: int.parse(state.pathParameters['id']!),
+            ),
           ),
           GoRoute(
             path: '/dueno/canchas/:id/reservas',
-            builder: (context, state) =>
-                ReservasCanchaScreen(canchaId: int.parse(state.pathParameters['id']!)),
+            builder: (context, state) => ReservasCanchaScreen(
+              canchaId: int.parse(state.pathParameters['id']!),
+            ),
           ),
           GoRoute(
             path: '/dueno/perfil',
@@ -139,7 +150,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 });
 
 String _homeFor(AppRole? role) => switch (role) {
-      AppRole.dueno => '/dueno/canchas',
-      AppRole.admin => '/admin/usuarios',
-      AppRole.cliente || null => '/cliente/canchas',
-    };
+  AppRole.dueno => '/dueno/canchas',
+  AppRole.admin => '/admin/usuarios',
+  AppRole.cliente || null => '/cliente/canchas',
+};

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/widgets/sport_banner.dart';
 import '../auth_state.dart';
 
 /// Inicio de sesión y registro (`POST /api/login`, `POST /api/registro`).
@@ -56,88 +57,115 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Icon(Icons.sports_soccer, size: 56, color: theme.colorScheme.primary),
-                  const SizedBox(height: 12),
-                  Text('GoalTime', textAlign: TextAlign.center, style: theme.textTheme.headlineMedium),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Reserva tu cancha sintética',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.outline),
-                  ),
-                  const SizedBox(height: 32),
-                  if (_registro) ...[
-                    TextFormField(
-                      controller: _nombre,
-                      textCapitalization: TextCapitalization.words,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre',
-                        prefixIcon: Icon(Icons.person_outline),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SportBanner(
+                      etiqueta: 'Reserva · Juega · Conecta',
+                      titulo: 'GoalTime',
+                      descripcion:
+                          'La cancha te espera.\nTu próximo equipo también.',
+                    ),
+                    const SizedBox(height: 28),
+                    Text(
+                      _registro
+                          ? 'Empieza a jugar'
+                          : 'Qué bueno verte de nuevo',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
-                      validator: _validaNombre,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _registro
+                          ? 'Crea tu cuenta y encuentra tu próximo partido.'
+                          : 'Inicia sesión para reservar y organizar tu equipo.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    if (_registro) ...[
+                      TextFormField(
+                        controller: _nombre,
+                        textCapitalization: TextCapitalization.words,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'Nombre',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                        validator: _validaNombre,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    TextFormField(
+                      controller: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      autocorrect: false,
+                      decoration: const InputDecoration(
+                        labelText: 'Correo electrónico',
+                        prefixIcon: Icon(Icons.mail_outline),
+                      ),
+                      validator: _validaEmail,
                     ),
                     const SizedBox(height: 16),
-                  ],
-                  TextFormField(
-                    controller: _email,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    autocorrect: false,
-                    decoration: const InputDecoration(
-                      labelText: 'Correo electrónico',
-                      prefixIcon: Icon(Icons.mail_outline),
+                    TextFormField(
+                      controller: _password,
+                      obscureText: !_verPassword,
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => auth.cargando ? null : _enviar(),
+                      decoration: InputDecoration(
+                        labelText: 'Contraseña',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        helperText: _registro ? 'Mínimo 8 caracteres' : null,
+                        helperMaxLines: 2,
+                        suffixIcon: IconButton(
+                          tooltip: _verPassword
+                              ? 'Ocultar contraseña'
+                              : 'Ver contraseña',
+                          icon: Icon(
+                            _verPassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                          ),
+                          onPressed: () =>
+                              setState(() => _verPassword = !_verPassword),
+                        ),
+                      ),
+                      validator: _validaPassword,
                     ),
-                    validator: _validaEmail,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _password,
-                    obscureText: !_verPassword,
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) => auth.cargando ? null : _enviar(),
-                    decoration: InputDecoration(
-                      labelText: 'Contraseña',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      helperText: _registro ? 'Mínimo 8 caracteres' : null,
-                      helperMaxLines: 2,
-                      suffixIcon: IconButton(
-                        tooltip: _verPassword ? 'Ocultar contraseña' : 'Ver contraseña',
-                        icon: Icon(_verPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                        onPressed: () => setState(() => _verPassword = !_verPassword),
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      onPressed: auth.cargando ? null : _enviar,
+                      child: auth.cargando
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(_registro ? 'Crear cuenta' : 'Iniciar sesión'),
+                    ),
+                    TextButton(
+                      onPressed: auth.cargando
+                          ? null
+                          : () {
+                              ref.read(authProvider.notifier).limpiarError();
+                              setState(() => _registro = !_registro);
+                            },
+                      child: Text(
+                        _registro
+                            ? '¿Ya tienes cuenta? Inicia sesión'
+                            : '¿No tienes cuenta? Regístrate',
                       ),
                     ),
-                    validator: _validaPassword,
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: auth.cargando ? null : _enviar,
-                    child: auth.cargando
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(_registro ? 'Crear cuenta' : 'Iniciar sesión'),
-                  ),
-                  TextButton(
-                    onPressed: auth.cargando
-                        ? null
-                        : () {
-                            ref.read(authProvider.notifier).limpiarError();
-                            setState(() => _registro = !_registro);
-                          },
-                    child: Text(_registro
-                        ? '¿Ya tienes cuenta? Inicia sesión'
-                        : '¿No tienes cuenta? Regístrate'),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -178,7 +206,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String? _validaPassword(String? valor) {
     final texto = valor ?? '';
     if (texto.isEmpty) return 'Escribe tu contraseña';
-    if (_registro && texto.length < 8) return 'La contraseña necesita al menos 8 caracteres';
+    if (_registro && texto.length < 8) {
+      return 'La contraseña necesita al menos 8 caracteres';
+    }
     return null;
   }
 }

@@ -39,6 +39,7 @@ contrato de construcción (no de migración).
 - [`docs/ENTORNO.md`](docs/ENTORNO.md) — Versiones exactas e instalación paso a paso para ejecutar el proyecto en Linux, Windows o macOS
 - [`docs/PRUEBA-EN-DISPOSITIVO.md`](docs/PRUEBA-EN-DISPOSITIVO.md) — Cómo probar la app en un teléfono real y en el emulador, en otra PC, con los tres bloqueos que hacen perder una tarde
 - [`backend/README.md`](backend/README.md) — Cómo correr la API, variables de entorno y datos de prueba
+- [`docs/EQUIPOS.md`](docs/EQUIPOS.md) — Avance de equipos y jugadores, privacidad, demostración y próximos pasos hacia torneos
 
 ## Estructura
 
@@ -77,6 +78,11 @@ tool/           verificar_integracion.sh: backend real + contrato de la app
 - [ ] Capturas de la app en dispositivo real
 
 ## Ejecutar el backend
+
+**Demo rápida:** después de instalar las dependencias del backend, ejecuta
+`backend\.venv\Scripts\python.exe tool\iniciar_demo.py` en Windows o
+`backend/.venv/bin/python tool/iniciar_demo.py` en Linux/macOS. Prepara la base y
+arranca el servidor sin borrar datos. Solo para desarrollo.
 
 ```sh
 cd backend
@@ -152,6 +158,9 @@ los errores 401/404/422 pasando por `ApiException`— y se omite salvo que se le
 5. Con `PAGADORA=mock` aparecen "Simular pago aprobado/rechazado"; con Stripe, "Pagar con
    tarjeta" abre el checkout en el navegador y la app consulta el estado al volver.
 6. `Mis reservas`: paga o reintenta sin repetir el flujo; `Perfil` cierra sesión.
+7. `Equipos`: crea un equipo y registra nombre, apellido, documento y celular de los
+   jugadores. Plantillas privadas y persistentes; usa datos ficticios en la demo.
+   Todavía no incluye torneos. Alcance y recorrido en [`docs/EQUIPOS.md`](docs/EQUIPOS.md).
 
 ## Recorrido del módulo Dueño
 

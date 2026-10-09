@@ -51,6 +51,46 @@ def _base_migrada(cfg: ConfigAlembic) -> None:
     command.upgrade(cfg, "head")
 
 
+def test_sqlite_relativo_migra_la_misma_base_que_flask(tmp_path, monkeypatch):
+    from flask import Flask
+    from sqlalchemy import inspect
+
+    import config
+    from extensions import db
+
+    monkeypatch.setattr(config, "BASE_DIR", tmp_path)
+    monkeypatch.chdir(tmp_path)
+    cfg = _config_para("sqlite:///goaltime.db", monkeypatch)
+    _base_migrada(cfg)
+
+    app = Flask(__name__, instance_path=str(tmp_path / "instance"))
+    app.config.from_object(ConfigApp)
+    db.init_app(app)
+    with app.app_context():
+        assert set(db.metadata.tables) <= set(inspect(db.engine).get_table_names())
+    assert not (tmp_path / "goaltime.db").exists()
+
+
+def test_preparar_demo_migra_y_siembra_sin_duplicar(tmp_path, monkeypatch):
+    from app import create_app
+    from extensions import db
+    from models import Cliente, Cancha, Horario
+
+    monkeypatch.setattr(ConfigApp, "SQLALCHEMY_DATABASE_URI", f"sqlite:///{tmp_path / 'demo.sqlite'}")
+    app = create_app(ConfigApp)
+    runner = app.test_cli_runner()
+    for _ in range(2):
+        resultado = runner.invoke(args=["preparar-demo"])
+        assert resultado.exit_code == 0, resultado.output
+    with app.app_context():
+        assert db.session.query(Cliente).count() == 4
+        assert db.session.query(Cancha).count() == 3
+        assert db.session.query(Horario).count() == 63
+        db.engine.dispose()
+    respuesta = app.test_client().post("/api/login", json={"email": "cliente@goaltime.test", "password": "Goaltime123!"})
+    assert respuesta.status_code == 200
+
+
 def test_la_migracion_inicial_construye_el_esquema_que_dicen_los_modelos(tmp_path, monkeypatch):
     """Migrar desde cero tiene que dejar el esquema que describen los modelos.
 

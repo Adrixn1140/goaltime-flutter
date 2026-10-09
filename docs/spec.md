@@ -658,3 +658,8 @@ explícitamente en el job que sí debe hablar con la API.
   recorre el mismo `_aplicar()`. Con claves, además, hay que exponer el webhook.
 - Correr el contrato real en este equipo: requiere que `flutter_tester` tenga memoria
   disponible. En CI corre en cada push (§7.6).
+## Extensión demostrativa: equipos
+
+El contrato del avance de equipos y jugadores está en [`EQUIPOS.md`](EQUIPOS.md).
+Amplía la app del cliente sin alterar reservas ni pagos. Torneos completos quedan
+fuera del alcance de esta entrega.

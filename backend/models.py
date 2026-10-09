@@ -124,6 +124,37 @@ class Cliente(db.Model):
         }
 
 
+class Equipo(db.Model):
+    """Plantilla privada del cliente; primer paso hacia torneos."""
+
+    __tablename__ = "equipo"
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(80), nullable=False)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("cliente.id", ondelete="RESTRICT"), nullable=False, index=True)
+    creado_en = db.Column(db.DateTime, nullable=False, server_default=func.now())
+    jugadores = db.relationship("Jugador", back_populates="equipo", lazy="selectin", order_by="Jugador.id")
+
+    def to_dict(self):
+        return {"id": self.id, "nombre": self.nombre, "jugadores": [j.to_dict() for j in self.jugadores]}
+
+
+class Jugador(db.Model):
+    __tablename__ = "jugador"
+    __table_args__ = (UniqueConstraint("equipo_id", "documento", name="uq_jugador_equipo_documento"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    equipo_id = db.Column(db.Integer, db.ForeignKey("equipo.id", ondelete="CASCADE"), nullable=False, index=True)
+    nombre = db.Column(db.String(80), nullable=False)
+    apellido = db.Column(db.String(80), nullable=False)
+    documento = db.Column(db.String(20), nullable=False)
+    celular = db.Column(db.String(15), nullable=False)
+    equipo = db.relationship("Equipo", back_populates="jugadores")
+
+    def to_dict(self):
+        return {"id": self.id, "nombre": self.nombre, "apellido": self.apellido,
+                "documento": self.documento, "celular": self.celular}
+
+
 class Cancha(db.Model):
     """Cancha sintética. `dueno_id` es el aislamiento multi-dueño (spec.md 3.4)."""
 

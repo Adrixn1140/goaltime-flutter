@@ -12,6 +12,7 @@ from blueprints.asistente import bp as asistente_bp
 from blueprints.auth import bp as auth_bp
 from blueprints.canchas import bp as canchas_bp
 from blueprints.disponibilidad import bp as disponibilidad_bp
+from blueprints.equipos import bp as equipos_bp
 from blueprints.gestion import bp as gestion_bp
 from blueprints.pagos import bp as pagos_bp
 from blueprints.reservas import bp as reservas_bp
@@ -46,6 +47,7 @@ def create_app(config_object=Config):
     app.register_blueprint(auth_bp, url_prefix="/api")
     app.register_blueprint(canchas_bp, url_prefix="/api")
     app.register_blueprint(disponibilidad_bp, url_prefix="/api")
+    app.register_blueprint(equipos_bp, url_prefix="/api")
     app.register_blueprint(reservas_bp, url_prefix="/api")
     app.register_blueprint(pagos_bp, url_prefix="/api")
     app.register_blueprint(gestion_bp, url_prefix="/api")
@@ -82,6 +84,21 @@ def _registrar_errores_jwt(app):
 
 
 def _registrar_cli(app):
+    @app.cli.command("preparar-demo")
+    def preparar_demo():
+        """Migra y carga datos de prueba sin borrar datos existentes (desarrollo)."""
+        from pathlib import Path
+        from alembic import command
+        from alembic.config import Config as AlembicConfig
+        from seed import ejecutar_seed
+
+        raiz = Path(__file__).resolve().parent
+        cfg = AlembicConfig(str(raiz / "alembic.ini"))
+        cfg.set_main_option("script_location", str(raiz / "migrations"))
+        command.upgrade(cfg, "head")
+        ejecutar_seed()
+        print("Demo preparada. Inicia el servidor con flask --app app run --host=0.0.0.0 --port=5000")
+
     @app.cli.command("seed-catalogo")
     def seed_catalogo():
         """Siembra los catálogos de `maestra` (idempotente).

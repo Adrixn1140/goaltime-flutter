@@ -23,6 +23,30 @@ flask --app app run --host=0.0.0.0 --port=5000
 `--host=0.0.0.0` es necesario para que la app en un dispositivo Android real alcance
 el servidor; desde el emulador basta `127.0.0.1`.
 
+### Demo local sin omitir la preparación
+
+Después de instalar las dependencias, puedes preparar **y arrancar** con un comando
+desde la raíz del proyecto. No borra ni reemplaza cuentas existentes:
+
+```powershell
+# Windows, sin necesidad de activar el entorno virtual
+backend\.venv\Scripts\python.exe tool\iniciar_demo.py
+```
+
+```sh
+# Linux / macOS
+backend/.venv/bin/python tool/iniciar_demo.py
+```
+
+El script aplica las migraciones y el seed antes de iniciar Flask, y se detiene si falla
+la preparación. También existe `flask --app app preparar-demo` para preparar sin arrancar.
+**Solo para desarrollo:** crea cuentas con contraseña conocida. En producción conserva
+el flujo de migraciones y `seed-catalogo`, sin usuarios de demostración.
+
+Si usas SQLite relativo, Alembic apunta a la misma `backend/instance/` que Flask;
+las rutas absolutas y PostgreSQL no se cambian. Transporta código y migraciones, no
+`.venv`, `.env`, bases de datos ni `android/local.properties` del otro computador.
+
 ### Cambios de esquema
 
 El esquema lo gobierna **Alembic**, no `db.create_all()`. `create_all()` sólo aparece en

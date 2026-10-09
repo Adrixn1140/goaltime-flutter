@@ -148,6 +148,24 @@ funcionando.
 
 #### Si prefieres hacerlo a mano
 
+**Alternativa local sin Docker (Windows, Linux o macOS):** instala Python y las
+dependencias de `backend/requirements.txt` en `backend/.venv`. Desde la raíz:
+
+```powershell
+backend\.venv\Scripts\python.exe tool\iniciar_demo.py
+```
+
+```sh
+backend/.venv/bin/python tool/iniciar_demo.py
+```
+
+El arranque local prepara el esquema con Alembic y carga las cuentas de demostración
+antes de servir la API. No borra datos. Solo para desarrollo; consulta
+[`backend/README.md`](../backend/README.md) para instalación y producción.
+
+**No copies el entorno virtual de otro equipo** ni `android/local.properties`:
+contienen rutas locales. Recréalo e instala las herramientas en el computador destino.
+
 ```sh
 cp .env.compose.example .env          # en la raíz, lo lee docker compose
 cp backend/.env.example backend/.env  # lo lee Flask/Alembic/pytest
@@ -222,6 +240,9 @@ Los recorridos completos están en el
 [README](../README.md#recorrido-del-módulo-cliente) — `Cliente`, `Dueño` y `Admin`. Con
 `PAGADORA=mock`, que es el default, el flujo de pago se recorre entero sin claves de
 Stripe.
+
+Nuevo avance: con rol cliente abre **Equipos**, crea uno y añade jugadores con datos
+ficticios. Consulta [`EQUIPOS.md`](EQUIPOS.md) para el recorrido y las limitaciones.
 
 ### 5. Capturas
 

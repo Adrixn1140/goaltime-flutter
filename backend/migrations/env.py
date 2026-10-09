@@ -21,12 +21,13 @@ from pathlib import Path
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
+from sqlalchemy.engine import make_url
 
 # Layout plano de Flask (módulos de primer nivel), igual que `tests/conftest.py`.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import models  # noqa: F401  (importa todos los modelos: sin esto, el MetaData está vacío)
-from config import Config
+from config import BASE_DIR, Config
 from extensions import db
 
 config = context.config
@@ -36,6 +37,15 @@ if config.config_file_name is not None:
 #: La URL sale del entorno, igual que la usa la app. Sin `DATABASE_URL` se cae al valor
 #: de desarrollo, para que `alembic` sea utilizable sin `.env`.
 _url = Config.SQLALCHEMY_DATABASE_URI
+_parsed_url = make_url(_url)
+if _parsed_url.get_backend_name() == "sqlite" and _parsed_url.database not in (None, "", ":memory:"):
+    _database = Path(_parsed_url.database)
+    if not _database.is_absolute():
+        # Flask-SQLAlchemy resuelve SQLite relativo contra backend/instance,
+        # no contra el directorio desde el que se ejecuta Alembic.
+        _instance = BASE_DIR / "instance"
+        _instance.mkdir(parents=True, exist_ok=True)
+        _url = _parsed_url.set(database=(_instance / _database).resolve().as_posix()).render_as_string(hide_password=False)
 config.set_main_option("sqlalchemy.url", _url.replace("%", "%%"))
 
 #: `db.metadata` con todos los modelos ya importados arriba.
