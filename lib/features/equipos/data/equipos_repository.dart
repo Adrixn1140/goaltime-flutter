@@ -72,6 +72,28 @@ class EquiposRepository {
     await _solicitar('POST', '/api/equipos/$id/jugadores', datos);
   }
 
+  Future<Equipo> renombrar(int id, String nombre) async => Equipo.fromJson(
+    Map<String, dynamic>.from(
+      await _solicitar('PATCH', '/api/equipos/$id', {'nombre': nombre}) as Map,
+    ),
+  );
+
+  Future<void> eliminar(int id) async {
+    await _solicitar('DELETE', '/api/equipos/$id');
+  }
+
+  Future<void> editarJugador(
+    int id,
+    int jugadorId,
+    Map<String, String> datos,
+  ) async {
+    await _solicitar('PATCH', '/api/equipos/$id/jugadores/$jugadorId', datos);
+  }
+
+  Future<void> retirarJugador(int id, int jugadorId) async {
+    await _solicitar('DELETE', '/api/equipos/$id/jugadores/$jugadorId');
+  }
+
   Future<dynamic> _solicitar(
     String metodo,
     String ruta, [

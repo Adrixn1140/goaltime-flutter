@@ -8,7 +8,7 @@ import '../../core/network/api_exception.dart';
 import 'data/auth_repository.dart';
 
 /// Roles del sistema (multi-dueño).
-enum AppRole { cliente, dueno, admin }
+enum AppRole { cliente, dueno, admin, arbitro }
 
 /// Estado de sesión de la app.
 ///
@@ -54,10 +54,15 @@ class AuthState {
 /// Repositorio de autenticación. Se expone como provider para poder sustituirlo en los
 /// tests con un doble que no toque la red.
 final authRepositoryProvider = Provider<AuthRepository>(
-  (ref) => AuthRepository(ref.watch(apiClientProvider), ref.watch(tokenStorageProvider)),
+  (ref) => AuthRepository(
+    ref.watch(apiClientProvider),
+    ref.watch(tokenStorageProvider),
+  ),
 );
 
-final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(
+  AuthNotifier.new,
+);
 
 class AuthNotifier extends Notifier<AuthState> {
   late final AuthRepository _repo;
@@ -110,13 +115,21 @@ class AuthNotifier extends Notifier<AuthState> {
     return _enviar(() => _repo.login(email: email, password: password));
   }
 
-  /// Registra una cuenta (siempre con rol `cliente`) e inicia sesión con ella.
+  /// Registro público: cliente o árbitro; nunca concede administración.
   Future<bool> register({
     required String nombre,
     required String email,
     required String password,
+    String tipoCuenta = 'cliente',
   }) {
-    return _enviar(() => _repo.register(nombre: nombre, email: email, password: password));
+    return _enviar(
+      () => _repo.register(
+        nombre: nombre,
+        email: email,
+        password: password,
+        tipoCuenta: tipoCuenta,
+      ),
+    );
   }
 
   /// Cierra sesión. Aunque el backend no invalide el token, se borra el local para no

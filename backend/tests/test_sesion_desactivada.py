@@ -36,6 +36,13 @@ PASSWORD = "Goaltime123!"
 # la petición tiene que poder llegar lejos de verdad. Un `400` por validación no
 # demostraría el agujero, sólo lo taparía.
 RUTAS_PROTEGIDAS = [
+    ("cliente", "get", "/api/arbitros", None),
+    ("arbitro", "get", "/api/arbitros/mi-perfil", None),
+    ("arbitro", "put", "/api/arbitros/mi-perfil", {"ciudad": "Riohacha", "celular": "3000000000", "experiencia": 2, "biografia": "Demo", "tarifa": 50000, "disponible": True, "publicado": False}),
+    ("cliente", "patch", "/api/equipos/999999", {"nombre": "Renombrado"}),
+    ("cliente", "delete", "/api/equipos/999999", None),
+    ("cliente", "patch", "/api/equipos/999999/jugadores/999999", {"nombre": "Ana"}),
+    ("cliente", "delete", "/api/equipos/999999/jugadores/999999", None),
     ("cliente", "get", "/api/equipos", None),
     ("cliente", "post", "/api/equipos", {"nombre": "Equipo Prueba"}),
     ("cliente", "get", "/api/equipos/999999", None),

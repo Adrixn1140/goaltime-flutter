@@ -114,6 +114,13 @@ vacías a propósito: se agregan los assets antes de las capturas de la entrega.
 
 ## Endpoints
 
+Ampliación del 30 de octubre de 2026: `POST /api/register` admite
+`tipo_cuenta: cliente|arbitro` (cliente por defecto); nunca asigna dueño/admin desde
+el formulario. Se añaden `GET /api/arbitros`, `GET/PUT /api/arbitros/mi-perfil` y
+`PATCH/DELETE` para equipos y jugadores. Contrato, validaciones y privacidad:
+[`docs/ARBITROS.md`](../docs/ARBITROS.md). El directorio exige sesión y solo muestra
+perfiles publicados por cuentas activas. No hay árbitros de demostración precargados.
+
 | Método | Ruta | Auth | Estado |
 |---|---|---|---|
 | GET | `/api/health` | — | ✅ |

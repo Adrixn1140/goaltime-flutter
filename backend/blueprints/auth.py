@@ -1,6 +1,6 @@
 """Blueprint de autenticación (spec.md 3.1).
 
-`register` es público y siempre crea usuarios con rol `cliente`: asignar `dueno` o
+`register` es público y crea clientes o árbitros: asignar `dueno` o
 `admin` es una operación de Admin (`PATCH /api/usuarios/{id}/rol`), nunca del propio
 registro.
 """
@@ -9,11 +9,12 @@ import re
 
 from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
+from sqlalchemy.exc import IntegrityError
 
 from errors import error_response
 from extensions import db
 from limites import EMAIL, NOMBRE
-from models import ROL_CLIENTE, Cliente, Maestra
+from models import ROL_CLIENTE, ROL_ARBITRO, Cliente, Maestra
 
 bp = Blueprint("auth", __name__)
 
@@ -66,15 +67,22 @@ def register():
     if existente:
         return error_response(409, "El email ya está registrado")
 
-    rol = _rol_de_codigo(ROL_CLIENTE)
+    tipo_cuenta = datos.get("tipo_cuenta", ROL_CLIENTE)
+    if tipo_cuenta not in (ROL_CLIENTE, ROL_ARBITRO):
+        return error_response(400, "El tipo de cuenta debe ser cliente o arbitro")
+    rol = _rol_de_codigo(tipo_cuenta)
     if rol is None:
-        current_app.logger.error("Catálogo 'rol' sin cliente; ejecuta `flask seed-catalogo`")
+        current_app.logger.error("Catálogo 'rol' incompleto; ejecuta migraciones y `flask seed-catalogo`")
         return error_response(500, "Error de configuración del servidor")
 
     cliente = Cliente(nombre=nombre, email=email, rol_id=rol.id)
     cliente.set_password(password)
     db.session.add(cliente)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return error_response(409, "El email ya está registrado")
 
     return _respuesta_auth(cliente, 201)
 

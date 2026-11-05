@@ -24,7 +24,7 @@ existe para que un proveedor caído no se confunda con un usuario que escribió 
 fallos distintos y merecen códigos distintos.
 """
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 
 from auth_helpers import con_rol
 from dominio.disponibilidad import (
@@ -35,6 +35,7 @@ from dominio.disponibilidad import (
     slots_reservables,
 )
 from dominio.errores import DominioInvalido
+from dominio.guia_asistente import orientar
 from errors import error_response
 from extensions import db
 from models import ROL_CLIENTE, Cancha
@@ -52,11 +53,20 @@ LIMITE_SUGERENCIAS = 3
 @bp.post("/asistente")
 @con_rol(ROL_CLIENTE)
 def asistente():
-    cuerpo = request.get_json(silent=True) or {}
+    cuerpo = request.get_json(silent=True)
+    if not isinstance(cuerpo, dict):
+        return error_response(400, "El cuerpo debe ser JSON con un mensaje")
     mensaje = cuerpo.get("mensaje")
 
     if not isinstance(mensaje, str) or not mensaje.strip():
         return error_response(400, "El campo 'mensaje' es obligatorio y debe ser texto")
+    if len(mensaje) > 1000:
+        return error_response(400, "El mensaje no puede superar 1000 caracteres")
+
+    orientacion = orientar(mensaje, g.usuario.id)
+    if orientacion is not None:
+        texto, acciones = orientacion
+        return _respuesta(texto, (), "guia-local", acciones)
 
     motor = obtener_motor()
 
@@ -176,14 +186,15 @@ def _motor_caido(exc: Exception):
     return error_response(502, "El asistente no está disponible en este momento")
 
 
-def _respuesta(texto, sugerencias, nombre_motor):
+def _respuesta(texto, sugerencias, nombre_motor, acciones=()):
     return jsonify(
         {
             "respuesta": texto,
             "sugerencias": [s.a_dict() for s in sugerencias],
             "motor": nombre_motor,
+            "acciones": list(acciones),
         }
     )
 
 
-_SALUDO = "Hola. Dime qué quieres reservar y te busco canchas libres."
+_SALUDO = "Hola. Te ayudo con canchas libres, tus equipos y árbitros publicados. Dime qué necesitas; cada consulta es independiente."

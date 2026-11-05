@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../auth/auth_state.dart';
 import '../state/canchas_provider.dart';
@@ -73,13 +74,21 @@ class PerfilScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.badge_outlined),
             title: const Text('Rol'),
-            trailing: Text(
-              switch (ref.watch(authProvider).role) {
-                AppRole.dueno => 'Dueño',
-                AppRole.admin => 'Administrador',
-                AppRole.cliente || null => 'Cliente',
-              },
+            trailing: Text(switch (ref.watch(authProvider).role) {
+              AppRole.dueno => 'Dueño',
+              AppRole.admin => 'Administrador',
+              AppRole.arbitro => 'Árbitro',
+              AppRole.cliente || null => 'Cliente',
+            }),
+          ),
+          ListTile(
+            leading: const Icon(Icons.sports_outlined),
+            title: const Text('Árbitros'),
+            subtitle: const Text(
+              'Perfiles, disponibilidad y tarifas por partido',
             ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/arbitros'),
           ),
           const SizedBox(height: 24),
           FilledButton.tonalIcon(
@@ -91,7 +100,9 @@ class PerfilScreen extends ConsumerWidget {
           Text(
             'Al cerrar sesión se borra la sesión guardada en este teléfono.',
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.outline,
+            ),
           ),
         ],
       ),
@@ -105,7 +116,9 @@ class PerfilScreen extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('¿Cerrar sesión?'),
-        content: const Text('Tendrás que volver a entrar con tu correo y contraseña.'),
+        content: const Text(
+          'Tendrás que volver a entrar con tu correo y contraseña.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),

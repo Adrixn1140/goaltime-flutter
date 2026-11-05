@@ -20,7 +20,8 @@ Widget appDePrueba(FakeApi api, {TokenStorage? storage}) {
       apiClientProvider.overrideWith((ref) {
         final dio = crearApiClient(
           storage: ref.watch(tokenStorageProvider),
-          onSesionExpirada: () => ref.read(sesionExpiradaProvider.notifier).notificar(),
+          onSesionExpirada: () =>
+              ref.read(sesionExpiradaProvider.notifier).notificar(),
         );
         dio.httpClientAdapter = FakeAdapter(api);
         return dio;
@@ -43,6 +44,7 @@ class FakeApi {
 
   /// Peticiones registradas, para afirmar el orden y el cuerpo de lo que se envió.
   final List<String> peticiones = [];
+  final List<Map<String, dynamic>> parametrosConsulta = [];
 
   /// Fallo programado para la próxima petición a una ruta. Al consumirse se borra solo:
   /// la respuesta normal de la ruta vuelve a estar vigente.
@@ -51,13 +53,23 @@ class FakeApi {
   /// Acciones que se disparan al recibir una petición. Sirven para encadenar estados que
   /// en el backend son consecuencia uno de otro: al confirmar el pago, la lista de
   /// reservas vuelve con la reserva ya confirmada.
-  final List<({String clave, void Function(FakeApi api) accion})> _alRecibir = [];
+  final List<({String clave, void Function(FakeApi api) accion})> _alRecibir =
+      [];
 
-  void alRecibir(String metodo, String ruta, void Function(FakeApi api) accion) {
+  void alRecibir(
+    String metodo,
+    String ruta,
+    void Function(FakeApi api) accion,
+  ) {
     _alRecibir.add((clave: '${metodo.toUpperCase()} $ruta', accion: accion));
   }
 
-  void responder(String metodo, String ruta, Object cuerpo, {int status = 200}) {
+  void responder(
+    String metodo,
+    String ruta,
+    Object? cuerpo, {
+    int status = 200,
+  }) {
     _rutas['${metodo.toUpperCase()} $ruta'] = _Respuesta(cuerpo, status);
   }
 
@@ -73,7 +85,10 @@ class FakeApi {
   /// quedara en 503 para siempre, el "reintentar" del usuario no se podría distinguir de
   /// un backend caído de verdad.
   void fallarLaProxima(String metodo, String ruta, int status, String mensaje) {
-    _fallanLaProxima['${metodo.toUpperCase()} $ruta'] = _errorFalso(status, mensaje);
+    _fallanLaProxima['${metodo.toUpperCase()} $ruta'] = _errorFalso(
+      status,
+      mensaje,
+    );
   }
 
   /// Adaptador de red falso listo para asignar a un `Dio` ya configurado.
@@ -90,6 +105,7 @@ class FakeApi {
 
   Future<ResponseBody> _responder(RequestOptions options) async {
     final clave = '${options.method} ${options.path}';
+    parametrosConsulta.add(Map<String, dynamic>.from(options.queryParameters));
     peticiones.add(
       options.data == null ? clave : '$clave ${jsonEncode(options.data)}',
     );
@@ -117,12 +133,9 @@ class FakeApi {
     );
   }
 
-  static _Respuesta _errorFalso(int status, String mensaje) => _Respuesta(
-    {
-      'error': {'codigo': status, 'mensaje': mensaje},
-    },
-    status,
-  );
+  static _Respuesta _errorFalso(int status, String mensaje) => _Respuesta({
+    'error': {'codigo': status, 'mensaje': mensaje},
+  }, status);
 
   static const _json = {
     Headers.contentTypeHeader: [Headers.jsonContentType],
@@ -132,7 +145,7 @@ class FakeApi {
 class _Respuesta {
   const _Respuesta(this.cuerpo, this.status);
 
-  final Object cuerpo;
+  final Object? cuerpo;
   final int status;
 }
 
@@ -237,14 +250,32 @@ String _manana() {
 }
 
 /// Reserva pendiente de pago de la cancha 1.
-Map<String, Object> reservaDePrueba({String estado = 'pendiente_pago', String pago = 'pendiente'}) {
+Map<String, Object> reservaDePrueba({
+  String estado = 'pendiente_pago',
+  String pago = 'pendiente',
+}) {
   return {
     'reserva_id': 7,
-    'cancha': {'id': 1, 'nombre': 'Cancha El Retiro', 'ubicacion': 'Cra 45 # 12-30'},
-    'horario': {'id': 11, 'hora_inicio': '14:00', 'hora_fin': '16:00', 'tarifa': 60000.0},
+    'cancha': {
+      'id': 1,
+      'nombre': 'Cancha El Retiro',
+      'ubicacion': 'Cra 45 # 12-30',
+    },
+    'horario': {
+      'id': 11,
+      'hora_inicio': '14:00',
+      'hora_fin': '16:00',
+      'tarifa': 60000.0,
+    },
     'fecha': _hoy(),
     'estado': estado,
-    'pago': {'id': 9, 'reserva_id': 7, 'monto': 60000.0, 'metodo': 'mock', 'estado': pago},
+    'pago': {
+      'id': 9,
+      'reserva_id': 7,
+      'monto': 60000.0,
+      'metodo': 'mock',
+      'estado': pago,
+    },
   };
 }
 
@@ -258,7 +289,13 @@ Map<String, Object> reservaDePrueba({String estado = 'pendiente_pago', String pa
 void canchasDeGestion(FakeApi api) {
   api.responder('GET', '/api/gestion/canchas', [
     _canchaGestion(1, 'Cancha El Retiro', horarios: 2, tarifa: 45000.0),
-    _canchaGestion(2, 'Cancha Laquina', horarios: 0, tarifa: null, activa: false),
+    _canchaGestion(
+      2,
+      'Cancha Laquina',
+      horarios: 0,
+      tarifa: null,
+      activa: false,
+    ),
   ]);
 }
 
@@ -284,17 +321,46 @@ Map<String, Object?> _canchaGestion(
 /// Horarios de la cancha 1, uno de lunes y otro de miércoles.
 void horariosDePrueba(FakeApi api) {
   api.responder('GET', '/api/gestion/canchas/1/horarios', [
-    {'id': 10, 'cancha_id': 1, 'dia': 0, 'hora_inicio': '08:00', 'hora_fin': '10:00', 'tarifa': 60000.0},
-    {'id': 11, 'cancha_id': 1, 'dia': 2, 'hora_inicio': '16:00', 'hora_fin': '18:00', 'tarifa': 55000.0},
+    {
+      'id': 10,
+      'cancha_id': 1,
+      'dia': 0,
+      'hora_inicio': '08:00',
+      'hora_fin': '10:00',
+      'tarifa': 60000.0,
+    },
+    {
+      'id': 11,
+      'cancha_id': 1,
+      'dia': 2,
+      'hora_inicio': '16:00',
+      'hora_fin': '18:00',
+      'tarifa': 55000.0,
+    },
   ]);
 }
 
 /// Reservas de la cancha 1: una pagada por confirmar, otra sin pagar y otra cancelada.
 void reservasDeGestion(FakeApi api) {
   api.responder('GET', '/api/gestion/canchas/1/reservas', [
-    _reservaGestion(id: 21, cliente: 'Carla Cliente', estado: 'pendiente_pago', pago: 'aprobado'),
-    _reservaGestion(id: 22, cliente: 'Julián Pérez', estado: 'pendiente_pago', pago: 'pendiente'),
-    _reservaGestion(id: 23, cliente: 'Ana Ruiz', estado: 'cancelada', pago: 'rechazado'),
+    _reservaGestion(
+      id: 21,
+      cliente: 'Carla Cliente',
+      estado: 'pendiente_pago',
+      pago: 'aprobado',
+    ),
+    _reservaGestion(
+      id: 22,
+      cliente: 'Julián Pérez',
+      estado: 'pendiente_pago',
+      pago: 'pendiente',
+    ),
+    _reservaGestion(
+      id: 23,
+      cliente: 'Ana Ruiz',
+      estado: 'cancelada',
+      pago: 'rechazado',
+    ),
   ]);
 }
 
@@ -306,12 +372,28 @@ Map<String, Object> _reservaGestion({
 }) {
   return {
     'reserva_id': id,
-    'cancha': {'id': 1, 'nombre': 'Cancha El Retiro', 'ubicacion': 'Cra 45 # 12-30', 'activo': true},
-    'horario': {'id': 10, 'hora_inicio': '08:00', 'hora_fin': '10:00', 'tarifa': 60000.0},
+    'cancha': {
+      'id': 1,
+      'nombre': 'Cancha El Retiro',
+      'ubicacion': 'Cra 45 # 12-30',
+      'activo': true,
+    },
+    'horario': {
+      'id': 10,
+      'hora_inicio': '08:00',
+      'hora_fin': '10:00',
+      'tarifa': 60000.0,
+    },
     'cliente': {'id': id * 3, 'nombre': cliente},
     'fecha': _manana(),
     'estado': estado,
-    'pago': {'id': id * 2, 'reserva_id': id, 'monto': 60000.0, 'metodo': 'mock', 'estado': pago},
+    'pago': {
+      'id': id * 2,
+      'reserva_id': id,
+      'monto': 60000.0,
+      'metodo': 'mock',
+      'estado': pago,
+    },
   };
 }
 
@@ -324,7 +406,13 @@ Map<String, Object> _reservaGestion({
 void usuariosDeAdmin(FakeApi api) {
   api.responder('GET', '/api/usuarios', {
     'usuarios': [
-      _usuarioAdmin(id: 1, nombre: 'Ana Cliente', email: 'ana@correo.com', rol: 'cliente', reservas: 3),
+      _usuarioAdmin(
+        id: 1,
+        nombre: 'Ana Cliente',
+        email: 'ana@correo.com',
+        rol: 'cliente',
+        reservas: 3,
+      ),
       _usuarioAdmin(
         id: 2,
         nombre: 'Diego Dueño',
@@ -340,7 +428,12 @@ void usuariosDeAdmin(FakeApi api) {
         rol: 'dueno',
         canchas: 1,
       ),
-      _usuarioAdmin(id: 4, nombre: 'Admin GoalTime', email: 'admin@correo.com', rol: 'admin'),
+      _usuarioAdmin(
+        id: 4,
+        nombre: 'Admin GoalTime',
+        email: 'admin@correo.com',
+        rol: 'admin',
+      ),
     ],
   });
 }

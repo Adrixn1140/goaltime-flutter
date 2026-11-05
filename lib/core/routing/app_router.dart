@@ -2,6 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/asistente_ia/presentation/asistente_screen.dart';
+import '../../features/arbitros/presentation/arbitros_screen.dart';
+import '../../features/arbitros/presentation/mi_perfil_arbitro_screen.dart';
+import '../../features/arbitros/presentation/arbitro_shell.dart';
 import '../../features/auth/auth_state.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/cliente/presentation/canchas_screen.dart';
@@ -55,11 +58,35 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (path.startsWith('/admin') && auth.role != AppRole.admin) {
         return home;
       }
+      if (path.startsWith('/arbitro/') && auth.role != AppRole.arbitro) {
+        return home;
+      }
       return null;
     },
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/arbitros',
+        builder: (context, state) => const ArbitrosScreen(),
+      ),
+      ShellRoute(
+        builder: (context, state, child) => ArbitroShell(child: child),
+        routes: [
+          GoRoute(
+            path: '/arbitro/perfil',
+            builder: (context, state) => const MiPerfilArbitroScreen(),
+          ),
+          GoRoute(
+            path: '/arbitro/directorio',
+            builder: (context, state) => const ArbitrosScreen(),
+          ),
+          GoRoute(
+            path: '/arbitro/cuenta',
+            builder: (context, state) => const PerfilScreen(),
+          ),
+        ],
+      ),
       ShellRoute(
         builder: (context, state, child) => ClienteShell(child: child),
         routes: [
@@ -152,5 +179,6 @@ final routerProvider = Provider<GoRouter>((ref) {
 String _homeFor(AppRole? role) => switch (role) {
   AppRole.dueno => '/dueno/canchas',
   AppRole.admin => '/admin/usuarios',
+  AppRole.arbitro => '/arbitro/perfil',
   AppRole.cliente || null => '/cliente/canchas',
 };

@@ -37,7 +37,7 @@ solo sus canchas).
 
 | tipo | codigos |
 |---|---|
-| `rol` | `cliente`, `dueno`, `admin` |
+| `rol` | `cliente`, `dueno`, `admin`, `arbitro` |
 | `estado_reserva` | `pendiente_pago`, `confirmada`, `cancelada` |
 | `estado_pago` | `pendiente`, `aprobado`, `rechazado` |
 | `metodo_pago` | `stripe` (producción) · `mock` (demo y tests sin claves) |
@@ -76,13 +76,13 @@ El backend debe escuchar en `0.0.0.0` para ser alcanzable desde un dispositivo r
 ### 3.0 Convenciones
 - Autenticación: `Authorization: Bearer <access_token>` (JWT, `flask-jwt-extended`).
 - Fechas: `YYYY-MM-DD`. Horas: `HH:MM` 24 h.
-- Rol en las respuestas: `cliente` · `dueno` · `admin`. El campo se llama `rol` en la
+- Rol en las respuestas: `cliente` · `dueno` · `admin` · `arbitro`. El campo se llama `rol` en la
   respuesta de auth y `rol_id` en el modelo `Cliente`.
 
 ### 3.1 Auth
 ```
 POST /api/register            (público)
-  req { name, email, password }
+  req { name, email, password, tipo_cuenta?: "cliente" | "arbitro" }
   res 201 { access_token, rol, usuario { id, nombre, email, rol } }
      | 400 name/email/password inválidos
      | 409 email ya en uso
@@ -94,7 +94,9 @@ POST /api/login               (público)
 
 POST /api/logout   (auth)  →  204
 ```
-- El registro público **siempre** crea el rol `cliente`. Asignar `dueno`/`admin` es una
+- El registro público crea `cliente` por defecto o `arbitro` si se solicita mediante
+  `tipo_cuenta` (extensión del 30 de octubre de 2026, [`ARBITROS.md`](ARBITROS.md)).
+  Los campos `rol` y `role` no conceden privilegios. Asignar `dueno`/`admin` es una
   operación de Admin (`PATCH /api/usuarios/{id}/rol`), nunca del propio registro.
 - `access_token` expira en 12 h (configurable con `JWT_ACCESS_TOKEN_HOURS`); no hay
   refresh token: al expirar, la app cierra la sesión, avisa y vuelve al login.
@@ -663,3 +665,13 @@ explícitamente en el job que sí debe hablar con la API.
 El contrato del avance de equipos y jugadores está en [`EQUIPOS.md`](EQUIPOS.md).
 Amplía la app del cliente sin alterar reservas ni pagos. Torneos completos quedan
 fuera del alcance de esta entrega.
+
+## Extensión: gestión de plantillas, árbitros y guía del asistente
+
+El contrato vigente de creación/edición/retiro de jugadores, eliminación de equipos,
+registro de árbitros, publicación voluntaria y directorio está en
+[`ARBITROS.md`](ARBITROS.md). Añade el rol `arbitro` al catálogo. `Disponible` es un
+estado declarado, no una agenda ni contratación. El asistente mantiene su acceso de
+cliente y añade una guía local, consultas reales privadas/públicas y acciones de
+navegación permitidas, sin ejecutar cambios. El esquema de disponibilidad anterior se
+conserva; `acciones` es una lista opcional adicional en su respuesta.

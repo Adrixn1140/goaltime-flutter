@@ -45,19 +45,20 @@ class UsuarioAdmin {
     RolUsuario.admin => 'Administrador',
     RolUsuario.dueno => 'Dueño',
     RolUsuario.cliente => 'Cliente',
+    RolUsuario.arbitro => 'Árbitro',
   };
 }
 
 enum RolUsuario {
   cliente('cliente', 'Cliente'),
   dueno('dueno', 'Dueño de cancha'),
-  admin('admin', 'Administrador');
+  admin('admin', 'Administrador'),
+  arbitro('arbitro', 'Árbitro');
 
   const RolUsuario(this.codigo, this.etiqueta);
 
   final String codigo;
   final String etiqueta;
-
 }
 
 /// Un rol desconocido se degrada a `cliente`, que es el de menor permiso: ante la duda,
@@ -91,7 +92,11 @@ class IngresoCancha {
 
 /// Una barra de ingresos por día de reserva.
 class IngresoDia {
-  const IngresoDia({required this.fecha, required this.monto, required this.reservas});
+  const IngresoDia({
+    required this.fecha,
+    required this.monto,
+    required this.reservas,
+  });
 
   factory IngresoDia.fromJson(Map<String, dynamic> json) => IngresoDia(
     fecha: fechaTexto(json['fecha']?.toString()),
@@ -107,13 +112,18 @@ class IngresoDia {
 
 /// Conteo de reservas de una cancha (sin monto: es el volumen, no el dinero).
 class CanchaConReservas {
-  const CanchaConReservas({required this.canchaId, required this.nombre, required this.reservas});
+  const CanchaConReservas({
+    required this.canchaId,
+    required this.nombre,
+    required this.reservas,
+  });
 
-  factory CanchaConReservas.fromJson(Map<String, dynamic> json) => CanchaConReservas(
-    canchaId: (json['cancha_id'] as num).toInt(),
-    nombre: json['nombre']?.toString() ?? '',
-    reservas: (json['reservas'] as num?)?.toInt() ?? 0,
-  );
+  factory CanchaConReservas.fromJson(Map<String, dynamic> json) =>
+      CanchaConReservas(
+        canchaId: (json['cancha_id'] as num).toInt(),
+        nombre: json['nombre']?.toString() ?? '',
+        reservas: (json['reservas'] as num?)?.toInt() ?? 0,
+      );
 
   final int canchaId;
   final String nombre;
@@ -136,9 +146,12 @@ class ReporteAdmin {
   });
 
   factory ReporteAdmin.fromJson(Map<String, dynamic> json) {
-    final ingresos = (json['ingresos'] as Map?)?.cast<String, dynamic>() ?? const {};
-    final reservas = (json['reservas'] as Map?)?.cast<String, dynamic>() ?? const {};
-    final usuarios = (json['usuarios'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final ingresos =
+        (json['ingresos'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final reservas =
+        (json['reservas'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final usuarios =
+        (json['usuarios'] as Map?)?.cast<String, dynamic>() ?? const {};
 
     return ReporteAdmin(
       generadoEn: fechaTexto(json['generado_en']?.toString()),
@@ -147,7 +160,10 @@ class ReporteAdmin {
       ingresosPorDia: _lista(ingresos['por_dia'], IngresoDia.fromJson),
       reservasTotal: (reservas['total'] as num?)?.toInt() ?? 0,
       reservasPorEstado: _mapaEnteros(reservas['por_estado']),
-      reservasPorCancha: _lista(reservas['por_cancha'], CanchaConReservas.fromJson),
+      reservasPorCancha: _lista(
+        reservas['por_cancha'],
+        CanchaConReservas.fromJson,
+      ),
       usuariosTotal: (usuarios['total'] as num?)?.toInt() ?? 0,
       usuariosPorRol: _mapaEnteros(usuarios['por_rol']),
       usuariosInactivos: (usuarios['inactivos'] as num?)?.toInt() ?? 0,
@@ -168,17 +184,23 @@ class ReporteAdmin {
   /// El desglose siempre suma el total (lo fija un test del backend): si no cuadrara, la
   /// gráfica estaría mintiendo y la app lo muestra como error de datos.
   bool get desgloseCuadra {
-    final suma = ingresosPorCancha.fold<double>(0, (total, c) => total + c.monto);
+    final suma = ingresosPorCancha.fold<double>(
+      0,
+      (total, c) => total + c.monto,
+    );
     return (suma - ingresosTotal).abs() < 0.01;
   }
 
   /// Estados con al menos una reserva, en el orden del catálogo y no en el que llegue
   /// el JSON: una gráfica cuyas barras cambian de orden entre recargas no se puede leer.
-  List<EstadoReserva> get estadosPresentes => const [
-    EstadoReserva.pendientePago,
-    EstadoReserva.confirmada,
-    EstadoReserva.cancelada,
-  ].where((estado) => (reservasPorEstado[estado.codigo] ?? 0) > 0).toList(growable: false);
+  List<EstadoReserva> get estadosPresentes =>
+      const [
+            EstadoReserva.pendientePago,
+            EstadoReserva.confirmada,
+            EstadoReserva.cancelada,
+          ]
+          .where((estado) => (reservasPorEstado[estado.codigo] ?? 0) > 0)
+          .toList(growable: false);
 
   int reservasDe(EstadoReserva estado) => reservasPorEstado[estado.codigo] ?? 0;
 }

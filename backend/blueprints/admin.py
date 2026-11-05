@@ -28,6 +28,9 @@ from models import (
     PAGO_APROBADO,
     ROL_ADMIN,
     ROL_CLIENTE,
+    ROL_DUENO,
+    ROL_ARBITRO,
+    PerfilArbitro,
     Cancha,
     Cliente,
     Maestra,
@@ -125,7 +128,7 @@ def cambiar_rol(usuario_id):
             "dejarías la plataforma sin administración",
         )
 
-    if nuevo_rol is not None and nuevo_rol.codigo == ROL_CLIENTE:
+    if nuevo_rol is not None and nuevo_rol.codigo not in (ROL_DUENO, ROL_ADMIN):
         activas = db.session.execute(
             db.select(db.func.count(Cancha.id)).where(
                 Cancha.dueno_id == objetivo.id, Cancha.activo.is_(True)
@@ -143,6 +146,10 @@ def cambiar_rol(usuario_id):
 
     if nuevo_rol is not None:
         objetivo.rol_id = nuevo_rol.id
+        if nuevo_rol.codigo != ROL_ARBITRO:
+            perfil = db.session.execute(db.select(PerfilArbitro).where(PerfilArbitro.cliente_id == objetivo.id)).scalar_one_or_none()
+            if perfil:
+                perfil.publicado = False
     if activo is not None:
         objetivo.activo = activo
     db.session.commit()

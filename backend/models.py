@@ -18,6 +18,7 @@ from extensions import db
 ROL_CLIENTE = "cliente"
 ROL_DUENO = "dueno"
 ROL_ADMIN = "admin"
+ROL_ARBITRO = "arbitro"
 
 ESTADO_PENDIENTE_PAGO = "pendiente_pago"
 ESTADO_CONFIRMADA = "confirmada"
@@ -37,6 +38,7 @@ CATALOGOS = {
         ROL_CLIENTE: "Cliente",
         ROL_DUENO: "Dueño de cancha",
         ROL_ADMIN: "Administrador",
+        ROL_ARBITRO: "Árbitro",
     },
     "estado_reserva": {
         ESTADO_PENDIENTE_PAGO: "Pendiente de pago",
@@ -132,7 +134,7 @@ class Equipo(db.Model):
     nombre = db.Column(db.String(80), nullable=False)
     cliente_id = db.Column(db.Integer, db.ForeignKey("cliente.id", ondelete="RESTRICT"), nullable=False, index=True)
     creado_en = db.Column(db.DateTime, nullable=False, server_default=func.now())
-    jugadores = db.relationship("Jugador", back_populates="equipo", lazy="selectin", order_by="Jugador.id")
+    jugadores = db.relationship("Jugador", back_populates="equipo", lazy="selectin", order_by="Jugador.id", cascade="all, delete-orphan")
 
     def to_dict(self):
         return {"id": self.id, "nombre": self.nombre, "jugadores": [j.to_dict() for j in self.jugadores]}
@@ -153,6 +155,31 @@ class Jugador(db.Model):
     def to_dict(self):
         return {"id": self.id, "nombre": self.nombre, "apellido": self.apellido,
                 "documento": self.documento, "celular": self.celular}
+
+
+class PerfilArbitro(db.Model):
+    __tablename__ = "perfil_arbitro"
+    __table_args__ = (
+        CheckConstraint("tarifa > 0 AND tarifa <= 10000000", name="ck_arbitro_tarifa"),
+        CheckConstraint("experiencia >= 0 AND experiencia <= 60", name="ck_arbitro_experiencia"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("cliente.id", ondelete="RESTRICT"), nullable=False, unique=True)
+    ciudad = db.Column(db.String(100), nullable=False)
+    celular = db.Column(db.String(15), nullable=False)
+    experiencia = db.Column(db.Integer, nullable=False)
+    biografia = db.Column(db.String(500), nullable=False)
+    tarifa = db.Column(db.Numeric(10, 2), nullable=False)
+    disponible = db.Column(db.Boolean, nullable=False)
+    publicado = db.Column(db.Boolean, nullable=False)
+    usuario = db.relationship("Cliente", lazy="joined")
+
+    def to_dict(self):
+        return {"id": self.id, "nombre": self.usuario.nombre, "ciudad": self.ciudad,
+                "celular": self.celular, "experiencia": self.experiencia,
+                "biografia": self.biografia, "tarifa": float(self.tarifa),
+                "disponible": self.disponible, "publicado": self.publicado}
 
 
 class Cancha(db.Model):

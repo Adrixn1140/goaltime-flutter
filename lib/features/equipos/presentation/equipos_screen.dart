@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/widgets/sport_banner.dart';
+import '../../../shared/widgets/confirmar_eliminacion.dart';
 import '../../auth/auth_state.dart';
 import '../data/equipos_repository.dart';
 import '../state/equipos_provider.dart';
@@ -117,7 +118,11 @@ class EquipoScreen extends ConsumerWidget {
   const EquipoScreen({super.key, required this.id});
   final int id;
 
-  Future<void> _agregar(BuildContext context, WidgetRef ref) async {
+  Future<void> _agregar(
+    BuildContext context,
+    WidgetRef ref, [
+    Jugador? jugador,
+  ]) async {
     final creado = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -127,14 +132,77 @@ class EquipoScreen extends ConsumerWidget {
       builder: (_) => _FormularioEquipo(
         repository: ref.read(equiposRepositoryProvider),
         equipoId: id,
+        jugador: jugador,
       ),
     );
     if (creado != true || !context.mounted) return;
     ref.invalidate(equipoProvider(id));
     ref.invalidate(equiposProvider);
-    ScaffoldMessenger.of(
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          jugador == null ? 'Jugador añadido al equipo' : 'Jugador actualizado',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _renombrar(
+    BuildContext context,
+    WidgetRef ref,
+    Equipo equipo,
+  ) async {
+    final resultado = await showModalBottomSheet<Equipo>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (_) => _FormularioEquipo(
+        repository: ref.read(equiposRepositoryProvider),
+        equipo: equipo,
+      ),
+    );
+    if (resultado == null || !context.mounted) return;
+    ref.invalidate(equipoProvider(id));
+    ref.invalidate(equiposProvider);
+  }
+
+  Future<void> _eliminar(
+    BuildContext context,
+    WidgetRef ref,
+    Equipo equipo,
+  ) async {
+    final repo = ref.read(equiposRepositoryProvider);
+    final eliminado = await confirmarEliminacion(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Jugador añadido al equipo')));
+      titulo: '¿Eliminar equipo?',
+      mensaje:
+          'Se eliminará ${equipo.nombre} y todos sus jugadores. No se puede deshacer. Tus reservas no cambian.',
+      eliminar: () => repo.eliminar(id),
+    );
+    if (!eliminado || !context.mounted) return;
+    ref.invalidate(equiposProvider);
+    ref.invalidate(equipoProvider(id));
+    context.go('/cliente/equipos');
+  }
+
+  Future<void> _retirar(
+    BuildContext context,
+    WidgetRef ref,
+    Jugador jugador,
+  ) async {
+    final repo = ref.read(equiposRepositoryProvider);
+    final eliminado = await confirmarEliminacion(
+      context,
+      titulo: '¿Retirar jugador?',
+      mensaje:
+          'Se retirará a ${jugador.nombreCompleto} de esta plantilla. No afecta otros equipos.',
+      eliminar: () => repo.retirarJugador(id, jugador.id),
+    );
+    if (!eliminado || !context.mounted) return;
+    ref.invalidate(equipoProvider(id));
+    ref.invalidate(equiposProvider);
   }
 
   @override
@@ -165,6 +233,22 @@ class EquipoScreen extends ConsumerWidget {
                 descripcion:
                     '${datos.jugadores.length} jugadores en tu plantilla',
                 icono: Icons.shield_outlined,
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => _renombrar(context, ref, datos),
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Editar equipo'),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _eliminar(context, ref, datos),
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Eliminar equipo'),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
               FilledButton.icon(
@@ -210,6 +294,18 @@ class EquipoScreen extends ConsumerWidget {
                                       .textTheme
                                       .titleMedium,
                                 ),
+                              ),
+                              IconButton(
+                                tooltip: 'Editar jugador',
+                                icon: const Icon(Icons.edit_outlined),
+                                onPressed: () =>
+                                    _agregar(context, ref, jugador),
+                              ),
+                              IconButton(
+                                tooltip: 'Retirar jugador',
+                                icon: const Icon(Icons.person_remove_outlined),
+                                onPressed: () =>
+                                    _retirar(context, ref, jugador),
                               ),
                             ],
                           ),
@@ -271,9 +367,16 @@ class _ErrorCarga extends StatelessWidget {
 
 /// El formulario permanece abierto si falla el servidor, sin perder lo escrito.
 class _FormularioEquipo extends StatefulWidget {
-  const _FormularioEquipo({required this.repository, this.equipoId});
+  const _FormularioEquipo({
+    required this.repository,
+    this.equipoId,
+    this.equipo,
+    this.jugador,
+  });
   final EquiposRepository repository;
   final int? equipoId;
+  final Equipo? equipo;
+  final Jugador? jugador;
   @override
   State<_FormularioEquipo> createState() => _FormularioEquipoState();
 }
@@ -287,6 +390,15 @@ class _FormularioEquipoState extends State<_FormularioEquipo> {
   bool _guardando = false;
   String? _error;
   bool get _jugador => widget.equipoId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _nombre.text = widget.jugador?.nombre ?? widget.equipo?.nombre ?? '';
+    _apellido.text = widget.jugador?.apellido ?? '';
+    _documento.text = widget.jugador?.documento ?? '';
+    _celular.text = widget.jugador?.celular ?? '';
+  }
 
   @override
   void dispose() {
@@ -304,15 +416,29 @@ class _FormularioEquipoState extends State<_FormularioEquipo> {
     });
     try {
       if (_jugador) {
-        await widget.repository.agregarJugador(widget.equipoId!, {
+        final datos = {
           'nombre': _nombre.text.trim(),
           'apellido': _apellido.text.trim(),
           'documento': _documento.text.trim(),
           'celular': _celular.text.trim(),
-        });
+        };
+        if (widget.jugador == null) {
+          await widget.repository.agregarJugador(widget.equipoId!, datos);
+        } else {
+          await widget.repository.editarJugador(
+            widget.equipoId!,
+            widget.jugador!.id,
+            datos,
+          );
+        }
         if (mounted) Navigator.pop(context, true);
       } else {
-        final equipo = await widget.repository.crear(_nombre.text.trim());
+        final equipo = widget.equipo == null
+            ? await widget.repository.crear(_nombre.text.trim())
+            : await widget.repository.renombrar(
+                widget.equipo!.id,
+                _nombre.text.trim(),
+              );
         if (mounted) Navigator.pop(context, equipo);
       }
     } catch (error) {
@@ -342,7 +468,13 @@ class _FormularioEquipoState extends State<_FormularioEquipo> {
                 children: [
                   Expanded(
                     child: Text(
-                      _jugador ? 'Nuevo jugador' : 'Nuevo equipo',
+                      _jugador
+                          ? (widget.jugador == null
+                                ? 'Nuevo jugador'
+                                : 'Editar jugador')
+                          : (widget.equipo == null
+                                ? 'Nuevo equipo'
+                                : 'Editar equipo'),
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                   ),

@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../auth/auth_state.dart' show mensajeDeError;
+import '../../auth/auth_state.dart' show mensajeDeError, authProvider;
 import '../data/asistente_repository.dart';
 import '../data/models.dart';
 
@@ -18,11 +18,13 @@ class MensajeChat {
     required this.delUsuario,
     required this.texto,
     this.sugerencias = const [],
+    this.acciones = const [],
   });
 
   final bool delUsuario;
   final String texto;
   final List<SugerenciaAsistente> sugerencias;
+  final List<AccionAsistente> acciones;
 }
 
 /// Estado de la conversación con el asistente.
@@ -38,11 +40,20 @@ class ConversacionEstado {
 }
 
 final conversacionProvider =
-    NotifierProvider<ConversacionNotifier, ConversacionEstado>(ConversacionNotifier.new);
+    NotifierProvider.autoDispose<ConversacionNotifier, ConversacionEstado>(
+      ConversacionNotifier.new,
+    );
 
 class ConversacionNotifier extends Notifier<ConversacionEstado> {
+  int _generacion = 0;
   @override
-  ConversacionEstado build() => const ConversacionEstado();
+  ConversacionEstado build() {
+    ref.watch(
+      authProvider.select((a) => (a.isAuthenticated, a.usuario?.email)),
+    );
+    _generacion++;
+    return const ConversacionEstado();
+  }
 
   /// Envía la frase del usuario y encola la respuesta del asistente.
   ///
@@ -53,6 +64,7 @@ class ConversacionNotifier extends Notifier<ConversacionEstado> {
   Future<void> enviar(String texto) async {
     final limpio = texto.trim();
     if (limpio.isEmpty || state.enviando) return;
+    final generacion = _generacion;
 
     state = ConversacionEstado(
       mensajes: [
@@ -64,8 +76,11 @@ class ConversacionNotifier extends Notifier<ConversacionEstado> {
 
     final RespuestaAsistente respuesta;
     try {
-      respuesta = await ref.read(asistenteRepositoryProvider).consultar(mensaje: limpio);
+      respuesta = await ref
+          .read(asistenteRepositoryProvider)
+          .consultar(mensaje: limpio);
     } catch (error) {
+      if (!ref.mounted || generacion != _generacion) return;
       state = ConversacionEstado(
         mensajes: [
           ...state.mensajes,
@@ -75,6 +90,7 @@ class ConversacionNotifier extends Notifier<ConversacionEstado> {
       return;
     }
 
+    if (!ref.mounted || generacion != _generacion) return;
     state = ConversacionEstado(
       mensajes: [
         ...state.mensajes,
@@ -82,6 +98,7 @@ class ConversacionNotifier extends Notifier<ConversacionEstado> {
           delUsuario: false,
           texto: respuesta.respuesta,
           sugerencias: respuesta.sugerencias,
+          acciones: respuesta.acciones,
         ),
       ],
     );

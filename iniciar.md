@@ -18,6 +18,19 @@ Usa datos ficticios. Documentación completa: [docs/EQUIPOS.md](docs/EQUIPOS.md)
 
 ## Instrucciones manuales originales
 
+### Avance del 30 de octubre de 2026
+
+El arranque actualizado de arriba aplica también la migración de árbitros sin borrar
+equipos existentes. Como cliente puedes editar/retirar jugadores, renombrar y eliminar
+equipos. En **Canchas → icono Árbitros** o **Perfil → Árbitros** se consulta el directorio.
+Para ofrecer servicios: cerrar sesión → Regístrate → **Árbitro** → completar
+**Mi perfil arbitral** → activar **Publicar perfil** y guardar. No hay árbitros
+precargados: el directorio se llena al publicar cuentas reales o de prueba.
+
+El asistente del cliente entiende preguntas sobre equipos y árbitros y ofrece accesos
+a esas pantallas. Contrato, privacidad y demo: [docs/ARBITROS.md](docs/ARBITROS.md).
+No incluye contratación, agenda de árbitros ni torneos todavía.
+
 el emulador debe estar encendido (Android Studio → Device Manager → ▶).
 iniciar:
 Terminal 1: backend

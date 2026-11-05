@@ -30,11 +30,111 @@ Future<void> _entrar(WidgetTester tester, FakeApi api) async {
 
 Future<void> _tap(WidgetTester tester, String texto) async {
   await tester.ensureVisible(find.text(texto));
+  await tester.pumpAndSettle();
   await tester.tap(find.text(texto));
   await tester.pumpAndSettle();
 }
 
 void main() {
+  testWidgets('editar jugador precarga y guarda los datos correctos', (
+    tester,
+  ) async {
+    final api = FakeApi()
+      ..responder('GET', '/api/equipos', [_equipo(conJugador: true)])
+      ..responder('GET', '/api/equipos/1', _equipo(conJugador: true))
+      ..responder('PATCH', '/api/equipos/1/jugadores/2', <String, Object>{});
+    await _entrar(tester, api);
+    await _tap(tester, 'Los del barrio');
+    await tester.scrollUntilVisible(find.byTooltip('Editar jugador'), 200);
+    await tester.tap(find.byTooltip('Editar jugador'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextFormField>(find.byType(TextFormField).at(2))
+          .controller!
+          .text,
+      '0001234567',
+    );
+    await tester.enterText(find.byType(TextFormField).first, 'Ana María');
+    await _tap(tester, 'Guardar jugador');
+    expect(
+      api.peticiones.any(
+        (p) =>
+            p.startsWith('PATCH /api/equipos/1/jugadores/2') &&
+            p.contains('Ana María'),
+      ),
+      isTrue,
+    );
+  });
+
+  testWidgets('retirar pide confirmación y cancelar no borra', (tester) async {
+    final api = FakeApi()
+      ..responder('GET', '/api/equipos', [_equipo(conJugador: true)])
+      ..responder('GET', '/api/equipos/1', _equipo(conJugador: true))
+      ..responder(
+        'DELETE',
+        '/api/equipos/1/jugadores/2',
+        <String, Object>{},
+        status: 204,
+      );
+    api.alRecibir(
+      'DELETE',
+      '/api/equipos/1/jugadores/2',
+      (a) => a.responder('GET', '/api/equipos/1', _equipo()),
+    );
+    await _entrar(tester, api);
+    await _tap(tester, 'Los del barrio');
+    await tester.scrollUntilVisible(find.byTooltip('Retirar jugador'), 200);
+    await tester.tap(find.byTooltip('Retirar jugador'));
+    await tester.pumpAndSettle();
+    await _tap(tester, 'Cancelar');
+    expect(api.peticiones.any((p) => p.startsWith('DELETE ')), isFalse);
+    await tester.tap(find.byTooltip('Retirar jugador'));
+    await tester.pumpAndSettle();
+    await _tap(tester, 'Eliminar');
+    expect(api.peticiones, contains('DELETE /api/equipos/1/jugadores/2'));
+    expect(find.text('Falta el primer fichaje'), findsOneWidget);
+  });
+
+  testWidgets('renombrar equipo precarga nombre y eliminar vuelve a lista', (
+    tester,
+  ) async {
+    final api = FakeApi()
+      ..responder('GET', '/api/equipos', [_equipo()])
+      ..responder('GET', '/api/equipos/1', _equipo())
+      ..responder('PATCH', '/api/equipos/1', {
+        ..._equipo(),
+        'nombre': 'Renombrado',
+      })
+      ..responder('DELETE', '/api/equipos/1', <String, Object>{}, status: 204);
+    api.alRecibir(
+      'PATCH',
+      '/api/equipos/1',
+      (a) => a.responder('GET', '/api/equipos/1', {
+        ..._equipo(),
+        'nombre': 'Renombrado',
+      }),
+    );
+    api.alRecibir(
+      'DELETE',
+      '/api/equipos/1',
+      (a) => a.responder('GET', '/api/equipos', <Object>[]),
+    );
+    await _entrar(tester, api);
+    await _tap(tester, 'Los del barrio');
+    await _tap(tester, 'Editar equipo');
+    expect(
+      tester.widget<TextFormField>(find.byType(TextFormField)).controller!.text,
+      'Los del barrio',
+    );
+    await tester.enterText(find.byType(TextFormField), 'Renombrado');
+    await _tap(tester, 'Guardar equipo');
+    expect(find.text('Renombrado'), findsOneWidget);
+    await _tap(tester, 'Eliminar equipo');
+    await _tap(tester, 'Eliminar');
+    expect(find.text('Aquí comienza tu equipo'), findsOneWidget);
+  });
+
   test('el modelo conserva ceros iniciales y oculta el documento', () {
     final equipo = Equipo.fromJson(_equipo(conJugador: true));
     expect(equipo.jugadores.single.documento, '0001234567');

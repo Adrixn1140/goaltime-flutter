@@ -151,3 +151,25 @@ def test_alembic_check_falla_si_una_columna_no_tiene_migracion(tmp_path, monkeyp
         command.check(cfg)
 
     assert "cliente" in str(fallo.value)
+
+
+def test_actualizar_instalacion_conserva_plantillas_y_habilita_arbitro(tmp_path, monkeypatch):
+    url = f"sqlite:///{tmp_path / 'instalacion.sqlite'}"
+    cfg = _config_para(url, monkeypatch)
+    command.upgrade(cfg, "e2a91009equipos")
+    motor = create_engine(url)
+    with motor.begin() as conexion:
+        conexion.execute(text("INSERT INTO maestra (id,tipo,codigo,valor) VALUES (1,'rol','cliente','Cliente')"))
+        conexion.execute(text("INSERT INTO cliente (id,nombre,email,password_hash,rol_id) VALUES (1,'Existente','existente@test.co','hash',1)"))
+        conexion.execute(text("INSERT INTO equipo (id,nombre,cliente_id) VALUES (1,'Equipo existente',1)"))
+        conexion.execute(text("INSERT INTO jugador (id,equipo_id,nombre,apellido,documento,celular) VALUES (1,1,'Ana','Prueba','0001234567','3000000000')"))
+    command.upgrade(cfg, "head")
+    with motor.connect() as conexion:
+        assert conexion.execute(text("SELECT nombre FROM equipo WHERE id=1")).scalar_one() == "Equipo existente"
+        assert conexion.execute(text("SELECT documento FROM jugador WHERE id=1")).scalar_one() == "0001234567"
+    motor.dispose()
+    from app import create_app
+    app = create_app(ConfigApp)
+    respuesta = app.test_client().post("/api/register", json={"name": "Nuevo Árbitro", "email": "nuevo@test.co", "password": "Goaltime123!", "tipo_cuenta": "arbitro"})
+    assert respuesta.status_code == 201
+    assert respuesta.json["rol"] == "arbitro"

@@ -29,7 +29,8 @@ class UsuariosScreen extends ConsumerWidget {
             icono: Icons.cloud_off,
             mensaje: mensajeDeError(error),
             accion: FilledButton.tonal(
-              onPressed: () => ref.read(usuariosAdminProvider.notifier).recargar(),
+              onPressed: () =>
+                  ref.read(usuariosAdminProvider.notifier).recargar(),
               child: const Text('Reintentar'),
             ),
           ),
@@ -42,7 +43,8 @@ class UsuariosScreen extends ConsumerWidget {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                   itemCount: lista.length,
-                  itemBuilder: (context, index) => _UsuarioCard(usuario: lista[index]),
+                  itemBuilder: (context, index) =>
+                      _UsuarioCard(usuario: lista[index]),
                 ),
         ),
       ),
@@ -72,13 +74,18 @@ class _UsuarioCard extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  CircleAvatar(child: Text(usuario.nombre.characters.first.toUpperCase())),
+                  CircleAvatar(
+                    child: Text(usuario.nombre.characters.first.toUpperCase()),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(usuario.nombre, style: theme.textTheme.titleMedium),
+                        Text(
+                          usuario.nombre,
+                          style: theme.textTheme.titleMedium,
+                        ),
                         Text(usuario.email, style: theme.textTheme.bodySmall),
                       ],
                     ),
@@ -192,7 +199,11 @@ class _UsuarioCard extends ConsumerWidget {
 
   /// Envuelve la mutación para que un `422` del backend se vea como lo que es: un
   /// mensaje que dice qué hacer, no una pantalla que se queda quieta.
-  Future<void> _aplicar(BuildContext context, WidgetRef ref, Future<void> Function() accion) async {
+  Future<void> _aplicar(
+    BuildContext context,
+    WidgetRef ref,
+    Future<void> Function() accion,
+  ) async {
     // El `messenger` se toma antes de esperar: después del async gap el `context` puede
     // haber salido del árbol y buscarlo ahí lanzaría en vez de mostrar el error.
     final messenger = ScaffoldMessenger.of(context);
@@ -200,7 +211,10 @@ class _UsuarioCard extends ConsumerWidget {
       await accion();
     } on Object catch (error) {
       messenger.showSnackBar(
-        SnackBar(content: Text(mensajeDeError(error)), behavior: SnackBarBehavior.floating),
+        SnackBar(
+          content: Text(mensajeDeError(error)),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
@@ -218,6 +232,7 @@ IconData _iconoDe(RolUsuario rol) => switch (rol) {
   RolUsuario.cliente => Icons.person_outline,
   RolUsuario.dueno => Icons.sports_soccer_outlined,
   RolUsuario.admin => Icons.shield_outlined,
+  RolUsuario.arbitro => Icons.sports_outlined,
 };
 
 enum _AccionUsuario { cambiarRol, activar, desactivar }
@@ -235,7 +250,10 @@ class _HojaAcciones extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: Text(usuario.nombre, style: Theme.of(context).textTheme.titleMedium),
+              title: Text(
+                usuario.nombre,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               subtitle: Text(usuario.email),
             ),
             const Divider(height: 1),
@@ -246,16 +264,24 @@ class _HojaAcciones extends StatelessWidget {
               onTap: () => Navigator.of(context).pop(_AccionUsuario.cambiarRol),
             ),
             ListTile(
-              leading: Icon(usuario.activo ? Icons.person_off_outlined : Icons.person_add_alt),
-              title: Text(usuario.activo ? 'Desactivar cuenta' : 'Activar cuenta'),
+              leading: Icon(
+                usuario.activo
+                    ? Icons.person_off_outlined
+                    : Icons.person_add_alt,
+              ),
+              title: Text(
+                usuario.activo ? 'Desactivar cuenta' : 'Activar cuenta',
+              ),
               subtitle: Text(
                 usuario.activo
                     ? 'Deja de poder entrar; su historial se conserva'
                     : 'Vuelve a poder iniciar sesión',
               ),
-              onTap: () => Navigator.of(
-                context,
-              ).pop(usuario.activo ? _AccionUsuario.desactivar : _AccionUsuario.activar),
+              onTap: () => Navigator.of(context).pop(
+                usuario.activo
+                    ? _AccionUsuario.desactivar
+                    : _AccionUsuario.activar,
+              ),
             ),
             const SizedBox(height: 8),
           ],
@@ -276,14 +302,30 @@ class RolChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final (fondo, texto) = switch (rol) {
-      RolUsuario.admin => (scheme.tertiaryContainer, scheme.onTertiaryContainer),
+      RolUsuario.admin => (
+        scheme.tertiaryContainer,
+        scheme.onTertiaryContainer,
+      ),
       RolUsuario.dueno => (scheme.primaryContainer, scheme.onPrimaryContainer),
-      RolUsuario.cliente => (scheme.surfaceContainerHighest, scheme.onSurfaceVariant),
+      RolUsuario.cliente => (
+        scheme.surfaceContainerHighest,
+        scheme.onSurfaceVariant,
+      ),
+      RolUsuario.arbitro => (
+        scheme.secondaryContainer,
+        scheme.onSecondaryContainer,
+      ),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: fondo, borderRadius: BorderRadius.circular(20)),
-      child: Text(rol.etiqueta, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: texto)),
+      decoration: BoxDecoration(
+        color: fondo,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        rol.etiqueta,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(color: texto),
+      ),
     );
   }
 }

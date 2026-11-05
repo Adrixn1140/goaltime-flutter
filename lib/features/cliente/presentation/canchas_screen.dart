@@ -24,6 +24,11 @@ class CanchasScreen extends ConsumerWidget {
         title: const Text('Canchas'),
         actions: [
           IconButton(
+            tooltip: 'Árbitros',
+            icon: const Icon(Icons.sports_outlined),
+            onPressed: () => context.push('/arbitros'),
+          ),
+          IconButton(
             tooltip: 'Actualizar',
             icon: const Icon(Icons.refresh),
             onPressed: () => ref.read(canchasProvider.notifier).recargar(),

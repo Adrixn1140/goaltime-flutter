@@ -9,7 +9,12 @@ import '../../../core/storage/token_storage.dart';
 /// aún no expone un endpoint de "mi perfil", así que se conservan el nombre y el correo
 /// que llegaron en el login en vez de inventar un dato.
 class Usuario {
-  const Usuario({this.id, required this.nombre, required this.email, required this.rol});
+  const Usuario({
+    this.id,
+    required this.nombre,
+    required this.email,
+    required this.rol,
+  });
 
   factory Usuario.fromJson(Map<String, dynamic> json) => Usuario(
     id: (json['id'] as num?)?.toInt(),
@@ -41,18 +46,27 @@ class AuthRepository {
   final TokenStorage _storage;
 
   Future<Sesion> login({required String email, required String password}) {
-    return _autenticar('/api/login', data: {'email': email, 'password': password});
+    return _autenticar(
+      '/api/login',
+      data: {'email': email, 'password': password},
+    );
   }
 
-  /// El registro siempre crea rol `cliente`: el rol no viaja en el cuerpo.
+  /// Solo se admite tipo de cuenta público, no asignación arbitraria de rol.
   Future<Sesion> register({
     required String nombre,
     required String email,
     required String password,
+    String tipoCuenta = 'cliente',
   }) {
     return _autenticar(
       '/api/register',
-      data: {'name': nombre, 'email': email, 'password': password},
+      data: {
+        'name': nombre,
+        'email': email,
+        'password': password,
+        'tipo_cuenta': tipoCuenta,
+      },
     );
   }
 
@@ -80,11 +94,18 @@ class AuthRepository {
     return Sesion(
       token: token,
       rol: await _storage.rol ?? 'cliente',
-      usuario: Usuario(nombre: nombre, email: email, rol: await _storage.rol ?? 'cliente'),
+      usuario: Usuario(
+        nombre: nombre,
+        email: email,
+        rol: await _storage.rol ?? 'cliente',
+      ),
     );
   }
 
-  Future<Sesion> _autenticar(String ruta, {required Map<String, dynamic> data}) async {
+  Future<Sesion> _autenticar(
+    String ruta, {
+    required Map<String, dynamic> data,
+  }) async {
     late final Map<String, dynamic> cuerpo;
     try {
       final respuesta = await _dio.post<Map<String, dynamic>>(ruta, data: data);

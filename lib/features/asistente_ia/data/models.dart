@@ -21,15 +21,16 @@ class SugerenciaAsistente {
     required this.tarifa,
   });
 
-  factory SugerenciaAsistente.fromJson(Map<String, dynamic> json) => SugerenciaAsistente(
-    canchaId: (json['cancha_id'] as num).toInt(),
-    cancha: json['cancha']?.toString() ?? '',
-    fecha: json['fecha']?.toString() ?? '',
-    horarioId: (json['horario_id'] as num).toInt(),
-    horaInicio: json['hora_inicio']?.toString() ?? '',
-    horaFin: json['hora_fin']?.toString() ?? '',
-    tarifa: (json['tarifa'] as num?)?.toDouble() ?? 0,
-  );
+  factory SugerenciaAsistente.fromJson(Map<String, dynamic> json) =>
+      SugerenciaAsistente(
+        canchaId: (json['cancha_id'] as num).toInt(),
+        cancha: json['cancha']?.toString() ?? '',
+        fecha: json['fecha']?.toString() ?? '',
+        horarioId: (json['horario_id'] as num).toInt(),
+        horaInicio: json['hora_inicio']?.toString() ?? '',
+        horaFin: json['hora_fin']?.toString() ?? '',
+        tarifa: (json['tarifa'] as num?)?.toDouble() ?? 0,
+      );
 
   final int canchaId;
   final String cancha;
@@ -47,11 +48,17 @@ class SugerenciaAsistente {
 /// `sugerencias` vacías **no** son un error: el asistente pudo responder un saludo, o no
 /// haber encontrado la cancha que pidieron. La capa de presentación decide qué mostrar
 /// según la cantidad de opciones, no según un código.
+class AccionAsistente {
+  const AccionAsistente({required this.destino, required this.etiqueta});
+  final String destino, etiqueta;
+}
+
 class RespuestaAsistente {
   const RespuestaAsistente({
     required this.respuesta,
     required this.sugerencias,
     required this.motor,
+    this.acciones = const [],
   });
 
   factory RespuestaAsistente.fromJson(Map<String, dynamic> json) {
@@ -60,16 +67,31 @@ class RespuestaAsistente {
       respuesta: json['respuesta']?.toString() ?? '',
       sugerencias: lista is List
           ? lista
-              .whereType<Map>()
-              .map((item) => SugerenciaAsistente.fromJson(Map<String, dynamic>.from(item)))
-              .toList(growable: false)
+                .whereType<Map>()
+                .map(
+                  (item) => SugerenciaAsistente.fromJson(
+                    Map<String, dynamic>.from(item),
+                  ),
+                )
+                .toList(growable: false)
           : const [],
       motor: json['motor']?.toString() ?? '',
+      acciones: (json['acciones'] is List ? json['acciones'] as List : const [])
+          .whereType<Map>()
+          .where((a) => ['equipos', 'arbitros'].contains(a['destino']))
+          .map(
+            (a) => AccionAsistente(
+              destino: a['destino'] as String,
+              etiqueta: a['etiqueta']?.toString() ?? 'Abrir',
+            ),
+          )
+          .toList(),
     );
   }
 
   final String respuesta;
   final List<SugerenciaAsistente> sugerencias;
+  final List<AccionAsistente> acciones;
 
   /// `mock`, `ollama` o `gemini` (spec.md 3.6).
   final String motor;

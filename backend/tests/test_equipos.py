@@ -83,3 +83,55 @@ def test_valida_jugador(client, cliente, campo, valor):
     assert client.post(f"/api/equipos/{equipo['id']}/jugadores", json={**JUGADOR, campo: valor},
                        headers=_headers(cliente)).status_code == 400
     assert db.session.query(Jugador).count() == 0
+
+
+def test_editar_retirar_y_eliminar_equipo(client, cliente):
+    headers = _headers(cliente)
+    equipo = _crear(client, cliente).json
+    ruta = f"/api/equipos/{equipo['id']}"
+    jugador = client.post(ruta + "/jugadores", headers=headers, json=JUGADOR).json
+    jruta = ruta + f"/jugadores/{jugador['id']}"
+    assert client.patch(ruta, headers=headers, json={"nombre": "Nuevo equipo"}).json["nombre"] == "Nuevo equipo"
+    assert client.patch(jruta, headers=headers, json={"apellido": "Actualizado"}).json["apellido"] == "Actualizado"
+    assert client.get(ruta, headers=headers).json["jugadores"][0]["documento"] == JUGADOR["documento"]
+    assert client.delete(jruta, headers=headers).status_code == 204
+    assert client.get(ruta, headers=headers).json["jugadores"] == []
+    client.post(ruta + "/jugadores", headers=headers, json=JUGADOR)
+    assert client.delete(ruta, headers=headers).status_code == 204
+    assert db.session.query(Jugador).count() == 0
+    assert client.get(ruta, headers=headers).status_code == 404
+
+
+def test_colision_al_editar_hace_rollback(client, cliente):
+    headers = _headers(cliente)
+    equipo = _crear(client, cliente).json
+    ruta = f"/api/equipos/{equipo['id']}/jugadores"
+    client.post(ruta, headers=headers, json=JUGADOR)
+    otro = client.post(ruta, headers=headers, json={**JUGADOR, "documento": "12345678"}).json
+    r = client.patch(ruta + f"/{otro['id']}", headers=headers, json={"documento": JUGADOR["documento"], "nombre": "No guardar"})
+    assert r.status_code == 409
+    assert db.session.get(Jugador, otro["id"]).nombre == JUGADOR["nombre"]
+    assert db.session.get(Jugador, otro["id"]).documento == "12345678"
+
+
+def test_edicion_y_borrado_no_admiten_ids_ajenos(client, cliente):
+    headers = _headers(cliente)
+    e1, e2 = _crear(client, cliente).json, _crear(client, cliente).json
+    j = client.post(f"/api/equipos/{e1['id']}/jugadores", headers=headers, json=JUGADOR).json
+    ruta_cruzada = f"/api/equipos/{e2['id']}/jugadores/{j['id']}"
+    assert client.patch(ruta_cruzada, headers=headers, json={"nombre": "Falso"}).status_code == 404
+    assert client.delete(ruta_cruzada, headers=headers).status_code == 404
+    otro = Cliente(nombre="Otro", email="ajeno@test.co", rol_id=cliente.rol_id)
+    otro.set_password("Goaltime123!")
+    db.session.add(otro)
+    db.session.commit()
+    for metodo, ruta in [("PATCH", f"/api/equipos/{e1['id']}"), ("DELETE", f"/api/equipos/{e1['id']}"),
+                         ("PATCH", f"/api/equipos/{e1['id']}/jugadores/{j['id']}"), ("DELETE", f"/api/equipos/{e1['id']}/jugadores/{j['id']}")]:
+        assert client.open(ruta, method=metodo, headers=_headers(otro), json={"nombre": "Ajeno"}).status_code == 404
+
+
+def test_no_hay_limite_de_tres_equipos(client, cliente):
+    for _ in range(4):
+        equipo = _crear(client, cliente).json
+        assert client.post(f"/api/equipos/{equipo['id']}/jugadores", headers=_headers(cliente), json=JUGADOR).status_code == 201
+    assert len(client.get("/api/equipos", headers=_headers(cliente)).json) == 4

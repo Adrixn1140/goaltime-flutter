@@ -28,6 +28,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   bool _registro = false;
   bool _verPassword = false;
+  String _tipoCuenta = 'cliente';
 
   @override
   void dispose() {
@@ -91,6 +92,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
                     if (_registro) ...[
+                      SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(
+                            value: 'cliente',
+                            label: Text('Cliente'),
+                            icon: Icon(Icons.groups_outlined),
+                          ),
+                          ButtonSegment(
+                            value: 'arbitro',
+                            label: Text('Árbitro'),
+                            icon: Icon(Icons.sports_outlined),
+                          ),
+                        ],
+                        selected: {_tipoCuenta},
+                        onSelectionChanged: auth.cargando
+                            ? null
+                            : (valores) =>
+                                  setState(() => _tipoCuenta = valores.first),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _tipoCuenta == 'arbitro'
+                            ? 'Crea tu cuenta para publicar tu perfil arbitral y tu tarifa.'
+                            : 'Reserva canchas y administra tus equipos.',
+                      ),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _nombre,
                         textCapitalization: TextCapitalization.words,
@@ -182,6 +209,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         nombre: _nombre.text.trim(),
         email: _email.text.trim(),
         password: _password.text,
+        tipoCuenta: _tipoCuenta,
       );
     } else {
       await notifier.login(email: _email.text.trim(), password: _password.text);

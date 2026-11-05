@@ -30,8 +30,8 @@ class _AsistenteScreenState extends ConsumerState<AsistenteScreen> {
     super.dispose();
   }
 
-  void _enviar() {
-    final texto = _controlador.text;
+  void _enviar([String? consulta]) {
+    final texto = consulta ?? _controlador.text;
     if (texto.trim().isEmpty) return;
     _controlador.clear();
     ref.read(conversacionProvider.notifier).enviar(texto);
@@ -63,16 +63,29 @@ class _AsistenteScreenState extends ConsumerState<AsistenteScreen> {
     });
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Asistente')),
+      appBar: AppBar(
+        title: const Text('Asistente'),
+        actions: [
+          IconButton(
+            tooltip: 'Limpiar conversación',
+            icon: const Icon(Icons.delete_sweep_outlined),
+            onPressed: conversacion.enviando
+                ? null
+                : () => ref.invalidate(conversacionProvider),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Expanded(
             child: conversacion.mensajes.isEmpty
-                ? const _Saludo()
+                ? _Saludo(alElegir: _enviar)
                 : ListView.builder(
                     controller: _lista,
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                    itemCount: conversacion.mensajes.length + (conversacion.enviando ? 1 : 0),
+                    itemCount:
+                        conversacion.mensajes.length +
+                        (conversacion.enviando ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (index == conversacion.mensajes.length) {
                         return const _BurbujaPensando();
@@ -108,33 +121,58 @@ class _AsistenteScreenState extends ConsumerState<AsistenteScreen> {
 
 /// Primera visita: antes de mandar el primer mensaje la pantalla explica qué es esto.
 class _Saludo extends StatelessWidget {
-  const _Saludo();
+  const _Saludo({required this.alElegir});
+  final ValueChanged<String> alElegir;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.chat_bubble_outline, size: 56, color: theme.colorScheme.primary),
-            const SizedBox(height: 16),
-            Text(
-              'Cuéntame cuándo quieres jugar\ny te busco canchas libres.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Por ejemplo: "mañana en la noche"',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.outline,
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.chat_bubble_outline,
+                size: 56,
+                color: theme.colorScheme.primary,
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              Text(
+                'Tu partido empieza aquí.\nCanchas, equipos y árbitros.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Cada consulta es independiente. No compartas documentos ni celulares en el chat.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final consulta in [
+                    'Quiero jugar mañana en la noche',
+                    'Cómo añadir jugadores',
+                    'Mis equipos',
+                    'Árbitros disponibles',
+                  ])
+                    ActionChip(
+                      label: Text(consulta),
+                      onPressed: () => alElegir(consulta),
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -155,8 +193,9 @@ class _Burbuja extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Column(
-        crossAxisAlignment:
-            delUsuario ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: delUsuario
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           Container(
             constraints: BoxConstraints(
@@ -164,7 +203,9 @@ class _Burbuja extends StatelessWidget {
             ),
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
             decoration: BoxDecoration(
-              color: delUsuario ? scheme.primaryContainer : scheme.surfaceContainerHighest,
+              color: delUsuario
+                  ? scheme.primaryContainer
+                  : scheme.surfaceContainerHighest,
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(16),
                 topRight: const Radius.circular(16),
@@ -175,7 +216,9 @@ class _Burbuja extends StatelessWidget {
             child: Text(
               mensaje.texto,
               style: TextStyle(
-                color: delUsuario ? scheme.onPrimaryContainer : scheme.onSurface,
+                color: delUsuario
+                    ? scheme.onPrimaryContainer
+                    : scheme.onSurface,
               ),
             ),
           ),
@@ -191,6 +234,26 @@ class _Burbuja extends StatelessWidget {
               ),
             ),
           ],
+          if (mensaje.acciones.isNotEmpty)
+            Wrap(
+              spacing: 8,
+              children: mensaje.acciones
+                  .map(
+                    (accion) => OutlinedButton.icon(
+                      onPressed: () {
+                        switch (accion.destino) {
+                          case 'equipos':
+                            context.go('/cliente/equipos');
+                          case 'arbitros':
+                            context.push('/arbitros');
+                        }
+                      },
+                      icon: const Icon(Icons.arrow_forward),
+                      label: Text(accion.etiqueta),
+                    ),
+                  )
+                  .toList(),
+            ),
         ],
       ),
     );
@@ -198,7 +261,10 @@ class _Burbuja extends StatelessWidget {
 }
 
 class _TarjetaSugerencia extends StatelessWidget {
-  const _TarjetaSugerencia({required this.sugerencia, required this.alReservar});
+  const _TarjetaSugerencia({
+    required this.sugerencia,
+    required this.alReservar,
+  });
 
   final SugerenciaAsistente sugerencia;
   final VoidCallback alReservar;
@@ -215,7 +281,11 @@ class _TarjetaSugerencia extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.sports_soccer, size: 18, color: theme.colorScheme.primary),
+                Icon(
+                  Icons.sports_soccer,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -282,7 +352,10 @@ class _BurbujaPensando extends StatelessWidget {
           SizedBox(
             width: 14,
             height: 14,
-            child: CircularProgressIndicator(strokeWidth: 2, color: scheme.primary),
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: scheme.primary,
+            ),
           ),
           const SizedBox(width: 10),
           const Text('Buscando…'),
@@ -312,6 +385,7 @@ class _BarraDeEscritura extends StatelessWidget {
         children: [
           Expanded(
             child: TextField(
+              maxLength: 1000,
               controller: controlador,
               enabled: !enviando,
               textCapitalization: TextCapitalization.sentences,

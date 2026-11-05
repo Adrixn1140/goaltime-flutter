@@ -105,6 +105,11 @@ def admin(app):
 
 
 @pytest.fixture()
+def arbitro(app):
+    return _crear_cliente("arbitro@test.co", "arbitro", "Árbitro Prueba")
+
+
+@pytest.fixture()
 def cancha(app, dueno):
     cancha = Cancha(nombre="Cancha Prueba", ubicacion="Cra 1 #2-3", dueno_id=dueno.id)
     db.session.add(cancha)

@@ -23,7 +23,7 @@ from models import (
 
 
 def test_catalogos_cargados(app):
-    assert Maestra.codigos("rol") == {"cliente", "dueno", "admin"}
+    assert Maestra.codigos("rol") == {"cliente", "dueno", "admin", "arbitro"}
     assert Maestra.codigos("estado_reserva") == {"pendiente_pago", "confirmada", "cancelada"}
     assert Maestra.codigos("estado_pago") == {"pendiente", "aprobado", "rechazado"}
 

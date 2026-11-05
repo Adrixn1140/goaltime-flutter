@@ -1,5 +1,10 @@
 # Mis equipos — avance demostrativo
 
+> **Actualización, 30 de octubre de 2026:** además de crear equipos y jugadores,
+> ya se puede renombrar/eliminar equipos y editar/retirar jugadores, con validación,
+> confirmación y aislamiento por cuenta. La sección de alcance original de abajo es
+> histórica. El contrato vigente y la demo ampliada están en [ARBITROS.md](ARBITROS.md).
+
 ## Alcance (9 de octubre de 2026)
 
 Primer paso hacia la organización de torneos. Un cliente autenticado puede crear

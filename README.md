@@ -4,7 +4,8 @@ Sistema de **reservas de canchas sintéticas** (Riohacha, Colombia). Proyecto de
 asignatura de desarrollo móvil: app **Flutter (Android/iOS)** + **API REST propia**
 construida con **Flask + SQLAlchemy** en este mismo repositorio.
 
-**Multi-rol**: `Cliente` (reservar), `Dueño` (gestiona sus canchas) y `Admin` (gestión global).
+**Multi-rol**: `Cliente` (reservas/equipos), `Dueño` (gestiona sus canchas),
+`Árbitro` (publica su perfil y tarifa) y `Admin` (gestión global).
 
 ## Trazabilidad
 
@@ -40,6 +41,7 @@ contrato de construcción (no de migración).
 - [`docs/PRUEBA-EN-DISPOSITIVO.md`](docs/PRUEBA-EN-DISPOSITIVO.md) — Cómo probar la app en un teléfono real y en el emulador, en otra PC, con los tres bloqueos que hacen perder una tarde
 - [`backend/README.md`](backend/README.md) — Cómo correr la API, variables de entorno y datos de prueba
 - [`docs/EQUIPOS.md`](docs/EQUIPOS.md) — Avance de equipos y jugadores, privacidad, demostración y próximos pasos hacia torneos
+- [`docs/ARBITROS.md`](docs/ARBITROS.md) — Gestión de plantillas, cuentas y perfiles arbitrales, directorio con tarifas y asistente ampliado
 
 ## Estructura
 
@@ -150,7 +152,8 @@ los errores 401/404/422 pasando por `ApiException`— y se omite salvo que se le
 
 ## Recorrido del módulo Cliente
 
-1. `Iniciar sesión` o `Regístrate` (el registro siempre crea rol `cliente`).
+1. `Iniciar sesión` o `Regístrate` seleccionando **Cliente**. Para ofrecer servicios,
+   selecciona **Árbitro**: su inicio lleva al perfil arbitral, no a las reservas.
 2. `Canchas`: catálogo con nombre, ubicación y precio "desde".
 3. Toca una cancha → tira de 6 días y slots; los ocupados y los ya pasados salen
    deshabilitados con su motivo.
