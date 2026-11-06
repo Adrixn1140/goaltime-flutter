@@ -31,7 +31,9 @@ class CanchasScreen extends ConsumerWidget {
           IconButton(
             tooltip: 'Actualizar',
             icon: const Icon(Icons.refresh),
-            onPressed: () => ref.read(canchasProvider.notifier).recargar(),
+            onPressed: canchas.isLoading
+                ? null
+                : () => ref.read(canchasProvider.notifier).recargar(),
           ),
         ],
       ),

@@ -19,13 +19,36 @@ final canchasRepositoryProvider = Provider<CanchasRepository>(
 /// decisión del usuario (botón "Reintentar"), porque lo que se muestra tras un fallo es un
 /// mensaje con la siguiente acción, no un spinner que se alarga solo (HEUR-1, HEUR-9).
 class CanchasNotifier extends AsyncNotifier<List<Cancha>> {
-  @override
-  Future<List<Cancha>> build() => ref.watch(canchasRepositoryProvider).listar();
+  Future<void>? _actualizacion;
+  int _generacion = 0;
 
-  /// Vuelve a pedir el catálogo (refresh, o reintento tras un error).
-  Future<void> recargar() async {
+  @override
+  Future<List<Cancha>> build() {
+    final repo = ref.watch(canchasRepositoryProvider);
+    _generacion++;
+    _actualizacion = null;
+    return repo.listar();
+  }
+
+  /// Los refresh simultáneos comparten una petición en lugar de duplicar tráfico.
+  Future<void> recargar() {
+    final pendiente = _actualizacion;
+    if (pendiente != null) return pendiente;
+
+    final generacion = _generacion;
+    final repo = ref.read(canchasRepositoryProvider);
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => ref.read(canchasRepositoryProvider).listar());
+    late final Future<void> actualizacion;
+    actualizacion = AsyncValue.guard(repo.listar)
+        .then((resultado) {
+          // Una respuesta antigua no debe actualizar un provider invalidado o cerrado.
+          if (ref.mounted && generacion == _generacion) state = resultado;
+        })
+        .whenComplete(() {
+          if (identical(_actualizacion, actualizacion)) _actualizacion = null;
+        });
+    _actualizacion = actualizacion;
+    return actualizacion;
   }
 }
 
