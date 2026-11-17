@@ -136,6 +136,9 @@ def _exigir_esquema() -> None:
 
 
 def ejecutar_seed():
+    from flask import current_app
+    if current_app.config.get("GOALTIME_ENV") == "production":
+        raise RuntimeError("Las cuentas de demostración no están permitidas en producción")
     _exigir_esquema()
     _cargar_catalogos()
     usuarios = _crear_usuarios()

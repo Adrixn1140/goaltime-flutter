@@ -94,6 +94,7 @@ RUTAS_PUBLICAS = {
     ("GET", "/api/canchas"),
     ("GET", "/api/disponibilidad"),
     ("GET", "/api/health"),
+    ("GET", "/api/ready"),
     ("POST", "/api/login"),
     ("POST", "/api/register"),
     ("POST", "/api/pagos/webhook"),

@@ -5,6 +5,11 @@ si el código y la spec discrepan, **la spec manda** (y se corrige la spec prime
 
 ## Puesta en marcha
 
+**Railway + Supabase:** consulta [`docs/PRODUCCION.md`](../docs/PRODUCCION.md).
+La configuración de producción es distinta de la demo: PostgreSQL/SSL, secretos
+privados, DEBUG desactivado, puerto `PORT`, `/api/ready` y sin cuentas precargadas.
+Plantilla de variables: `.env.production.example` (no contiene credenciales reales).
+
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate

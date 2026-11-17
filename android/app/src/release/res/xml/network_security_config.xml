@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Producción: sin excepciones HTTP para IP del portátil, localhost o emulador. -->
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

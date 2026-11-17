@@ -276,6 +276,9 @@ L=Riohacha, ST=La Guajira, C=CO`) y su `key.properties`, y `build.gradle.kts` se
 que la firma de release salga de ahí, con la de debug como reserva si el archivo no está
 (`378a0bd`). Se quitó así el `TODO` de Flutter que pedía editar el build a mano.
 
+> Actualización 17/11/2026: el fallback de firma de este registro histórico se retiró.
+> Release exige firma propia y URL HTTPS; véase [PRODUCCION.md](PRODUCCION.md).
+
 `flutter build apk --release` terminó y produjo 55 MB, frente a los 164 MB del debug: la
 diferencia es que el de release va compilado a código de máquina por AOT y no lleva los
 símbolos de depuración.

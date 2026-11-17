@@ -3,9 +3,12 @@
 Punto de entrada: `flask --app app run --host=0.0.0.0 --port=5000`.
 """
 
+import click
+
 from flask import Flask, jsonify
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import SQLAlchemyError
 
 from blueprints.admin import bp as admin_bp
 from blueprints.asistente import bp as asistente_bp
@@ -18,6 +21,7 @@ from blueprints.gestion import bp as gestion_bp
 from blueprints.pagos import bp as pagos_bp
 from blueprints.reservas import bp as reservas_bp
 from config import Config
+from deployment import validar_produccion
 from errors import error_response, registrar_handlers
 from extensions import cors, db, jwt
 
@@ -35,6 +39,7 @@ def _activar_claves_foraneas_sqlite(dbapi_connection, _record):
 def create_app(config_object=Config):
     app = Flask(__name__)
     app.config.from_object(config_object)
+    validar_produccion(app.config)
 
     db.init_app(app)
     jwt.init_app(app)
@@ -64,6 +69,23 @@ def _registrar_health(app):
     def health():
         return jsonify({"estado": "ok", "servicio": "goaltime-api", "version": "1.0.0"})
 
+    @app.get("/api/ready")
+    def ready():
+        try:
+            # Comprueba conexión Y que el esquema y los roles básicos estén preparados.
+            from models import Cliente, Equipo, Jugador, PerfilArbitro, Maestra, Cancha, Horario, Reserva, Pago
+            with db.engine.connect() as conexion:
+                for modelo in (Cliente, Equipo, Jugador, PerfilArbitro, Maestra, Cancha, Horario, Reserva, Pago):
+                    conexion.execute(db.select(modelo.__table__).limit(0))
+                roles = set(conexion.execute(db.select(Maestra.codigo).where(Maestra.tipo == "rol")).scalars())
+                if not {"cliente", "dueno", "admin", "arbitro"} <= roles:
+                    raise ValueError("Catálogos incompletos")
+            return jsonify({"estado": "ok", "servicio": "goaltime-api"})
+        except (SQLAlchemyError, ValueError):
+            # Nunca devuelve URLs de conexión, contraseñas ni trazas al cliente.
+            app.logger.warning("Readiness: base de datos o esquema no disponibles")
+            return error_response(503, "El servicio no está listo. Inténtalo más tarde")
+
 
 def _registrar_errores_jwt(app):
     """Los errores de JWT usan el mismo formato que el resto de la API."""
@@ -89,6 +111,8 @@ def _registrar_cli(app):
     @app.cli.command("preparar-demo")
     def preparar_demo():
         """Migra y carga datos de prueba sin borrar datos existentes (desarrollo)."""
+        if app.config.get("GOALTIME_ENV") == "production":
+            raise click.ClickException("preparar-demo no está permitido en producción")
         from pathlib import Path
         from alembic import command
         from alembic.config import Config as AlembicConfig
@@ -116,9 +140,34 @@ def _registrar_cli(app):
     @app.cli.command("seed")
     def seed():
         """Crea usuarios, canchas y horarios de prueba (idempotente)."""
+        if app.config.get("GOALTIME_ENV") == "production":
+            raise click.ClickException("seed de cuentas de prueba no está permitido en producción")
         from seed import ejecutar_seed
 
         ejecutar_seed()
+
+    @app.cli.command("crear-admin")
+    @click.option("--nombre", prompt="Nombre del administrador")
+    @click.option("--email", prompt="Correo del administrador")
+    @click.password_option(confirmation_prompt=True)
+    def crear_admin(nombre, email, password):
+        """Crea el primer administrador sin credenciales conocidas ni cambios de rol."""
+        from blueprints.auth import RE_EMAIL
+        from models import Cliente, Maestra
+
+        nombre, email = nombre.strip(), email.strip().lower()
+        if not 3 <= len(nombre) <= 120 or len(email) > 180 or not RE_EMAIL.fullmatch(email) or len(password) < 12:
+            raise click.ClickException("Nombre válido, email válido y contraseña de al menos 12 caracteres requeridos")
+        if db.session.execute(db.select(Cliente).where(Cliente.email == email)).scalar_one_or_none():
+            raise click.ClickException("El correo ya existe; no se modificó ninguna cuenta")
+        rol = Maestra.por_codigo("rol", "admin")
+        if rol is None:
+            raise click.ClickException("Ejecuta primero las migraciones y seed-catalogo")
+        usuario = Cliente(nombre=nombre, email=email, rol_id=rol.id)
+        usuario.set_password(password)
+        db.session.add(usuario)
+        db.session.commit()
+        click.echo("Administrador creado. Guarda sus credenciales de forma segura.")
 
 
 app = create_app()

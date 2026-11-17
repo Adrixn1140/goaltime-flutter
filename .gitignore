@@ -49,3 +49,5 @@ app.*.map.json
 
 # Entorno de docker compose: contiene JWT_SECRET_KEY (spec.md 7.2)
 .env
+.env.*
+!.env*.example

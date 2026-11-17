@@ -86,6 +86,7 @@ def run_migrations_online() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=Config.SQLALCHEMY_ENGINE_OPTIONS.get("connect_args", {}) if not _es_sqlite else {},
     )
     with connectable.connect() as connection:
         context.configure(

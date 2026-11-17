@@ -108,6 +108,10 @@ ni ejecutado, que es el hueco 1 y sigue abierto.
 
 ### APK de release (29 de septiembre de 2026)
 
+> Nota vigente al 17/11/2026: el siguiente registro es histórico. Ahora el build release
+> exige firma propia y API HTTPS, sin fallback a debug. No se ha reutilizado ni recreado
+> la clave local descrita aquí. Consulta [PRODUCCION.md](PRODUCCION.md).
+
 Se generó `android/goaltime-local.jks` con `keytool` y su `key.properties`, y
 `android/app/build.gradle.kts` se cambió para que la firma de release salga de ese archivo,
 con la de debug como reserva si no está (`378a0bd`). Eso quita el `TODO` de Flutter que
