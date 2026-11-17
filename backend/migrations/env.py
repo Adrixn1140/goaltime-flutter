@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import models  # noqa: F401  (importa todos los modelos: sin esto, el MetaData está vacío)
 from config import BASE_DIR, Config
+from deployment import opciones_motor
 from extensions import db
 
 config = context.config
@@ -86,7 +87,7 @@ def run_migrations_online() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        connect_args=Config.SQLALCHEMY_ENGINE_OPTIONS.get("connect_args", {}) if not _es_sqlite else {},
+        connect_args=opciones_motor(_url).get("connect_args", {}),
     )
     with connectable.connect() as connection:
         context.configure(

@@ -21,7 +21,7 @@ from blueprints.gestion import bp as gestion_bp
 from blueprints.pagos import bp as pagos_bp
 from blueprints.reservas import bp as reservas_bp
 from config import Config
-from deployment import validar_produccion
+from deployment import normalizar_database_url, opciones_motor, validar_produccion
 from errors import error_response, registrar_handlers
 from extensions import cors, db, jwt
 
@@ -39,7 +39,16 @@ def _activar_claves_foraneas_sqlite(dbapi_connection, _record):
 def create_app(config_object=Config):
     app = Flask(__name__)
     app.config.from_object(config_object)
+    app.config["SQLALCHEMY_DATABASE_URI"] = normalizar_database_url(app.config["SQLALCHEMY_DATABASE_URI"])
     validar_produccion(app.config)
+
+    # Resolver tras from_object: una subclase o un test puede cambiar la URL.
+    # No heredar connect_timeout/prepare_threshold de PostgreSQL en SQLite.
+    opciones = opciones_motor(app.config["SQLALCHEMY_DATABASE_URI"])
+    opciones.update(app.config.get("SQLALCHEMY_ENGINE_OPTIONS") or {})
+    if "connect_args" in opciones:
+        opciones["connect_args"] = dict(opciones["connect_args"])
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = opciones
 
     db.init_app(app)
     jwt.init_app(app)

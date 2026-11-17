@@ -10,7 +10,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
-from deployment import normalizar_database_url, opciones_motor
+from deployment import normalizar_database_url
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -33,7 +33,6 @@ class Config:
     #: README no borraría la base real y aparecería una segunda.
     SQLALCHEMY_DATABASE_URI = normalizar_database_url(os.getenv("DATABASE_URL", "sqlite:///goaltime.db"))
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS = opciones_motor(SQLALCHEMY_DATABASE_URI)
 
     JWT_SECRET_KEY = SECRET_KEY
     #: Se lee en **horas** y no en el `JWT_ACCESS_TOKEN_EXPIRES` de flask-jwt-extended
@@ -97,7 +96,6 @@ class TestConfig(Config):
     #: está ganada. Con esta variable el job de PostgreSQL de `.github/workflows/ci.yml`
     #: corre la suite completa de verdad.
     SQLALCHEMY_DATABASE_URI = normalizar_database_url(os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:"))
-    SQLALCHEMY_ENGINE_OPTIONS = opciones_motor(SQLALCHEMY_DATABASE_URI)
     JWT_SECRET_KEY = "test-secret-goaltime-suficientemente-largo"
     PAGADORA = "mock"
     #: El asistente se prueba contra el motor `mock` y **nunca** contra un proveedor real:

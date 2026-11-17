@@ -1,5 +1,8 @@
 import importlib.util
+import os
 from pathlib import Path
+import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -52,6 +55,45 @@ def test_pool_pequeno_solo_para_postgresql():
     assert pg["pool_size"] == 2 and pg["max_overflow"] == 0
     assert pg["connect_args"]["prepare_threshold"] is None
     assert "pool_size" not in opciones_motor("sqlite:///:memory:")
+
+
+def test_configuracion_final_no_hereda_opciones_de_otro_motor():
+    """Reproduce el entorno PostgreSQL de CI sin conectar a una base remota."""
+    codigo = '''
+from app import create_app
+from config import Config
+from extensions import db
+from sqlalchemy import text
+
+class Local(Config):
+    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+
+app = create_app(Local)
+assert "pool_size" not in app.config["SQLALCHEMY_ENGINE_OPTIONS"]
+with app.app_context():
+    assert db.session.execute(text("SELECT 1")).scalar_one() == 1
+    db.session.remove()
+    db.engine.dispose()
+'''
+    entorno = {**os.environ, "GOALTIME_ENV": "test",
+               "DATABASE_URL": "postgresql+psycopg://prueba:prueba@127.0.0.1:65432/solo_pruebas",
+               "TEST_DATABASE_URL": "sqlite:///:memory:"}
+    resultado = subprocess.run([sys.executable, "-c", codigo], cwd=RAIZ / "backend", env=entorno,
+                               capture_output=True, text=True, timeout=30)
+    assert resultado.returncode == 0, resultado.stderr
+
+
+def test_fabrica_respeta_opciones_explicitas_del_motor():
+    class Local(TestConfig):
+        SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+        SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": False, "connect_args": {"timeout": 7}}
+
+    app = create_app(Local)
+    assert app.config["SQLALCHEMY_ENGINE_OPTIONS"]["pool_pre_ping"] is False
+    assert app.config["SQLALCHEMY_ENGINE_OPTIONS"]["connect_args"]["timeout"] == 7
+    assert Local.SQLALCHEMY_ENGINE_OPTIONS == {"pool_pre_ping": False, "connect_args": {"timeout": 7}}
+    with app.app_context():
+        db.engine.dispose()
 
 
 @pytest.mark.parametrize("url", ["http://api.up.railway.app", "https://localhost", "https://192.168.1.1",
