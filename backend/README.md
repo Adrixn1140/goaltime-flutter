@@ -3,12 +3,33 @@
 Backend REST de GoalTime. Es la implementación de [`../docs/spec.md`](../docs/spec.md);
 si el código y la spec discrepan, **la spec manda** (y se corrige la spec primero).
 
-## Puesta en marcha
+## Piloto desplegado (18/11/2026)
 
-**Railway + Supabase:** consulta [`docs/PRODUCCION.md`](../docs/PRODUCCION.md).
-La configuración de producción es distinta de la demo: PostgreSQL/SSL, secretos
-privados, DEBUG desactivado, puerto `PORT`, `/api/ready` y sin cuentas precargadas.
-Plantilla de variables: `.env.production.example` (no contiene credenciales reales).
+**Railway + Supabase:** consulta [la guía del piloto](../docs/PRODUCCION.md).
+El servicio público es `https://goaltime-flutter-production.up.railway.app`.
+`GET /api/health` comprueba el proceso y `GET /api/ready` comprueba también
+conexión a PostgreSQL, tablas y roles básicos; la ruta `/` devuelve `404`.
+En la última comprobación, `/api/ready` respondió `estado: ok` y el catálogo
+público mostró una cancha. Esto no es monitoreo continuo ni prueba del
+flujo de pago.
+
+Railway construye `backend/Dockerfile` con Root Directory `/backend`.
+Antes de migrar se valida la configuración; después arranca Gunicorn en
+`PORT` (el dominio del piloto usa 5000). Las migraciones y `seed-catalogo`
+preparan el esquema, **no crean usuarios ni canchas demo**. Configura las
+variables privadas allí, jamás en Flutter ni en GitHub. La plantilla
+`.env.production.example` contiene solo ejemplos; la conexión real sale
+de **Session pooler** de Supabase con usuario `postgres.PROJECT_REF`, SSL y
+puerto 5432. No compartas URI ni secretos; si se exponen, rótalos.
+
+El piloto usa `PAGADORA=mock` con autorización explícita
+`ALLOW_MOCK_PAYMENTS=1`: **no cobra dinero real**. Para crear la primera
+cancha consulta [primer administrador y dueño](../docs/PRODUCCION.md#primer-administrador-y-primera-cancha).
+No ejecutes `pytest`, `flask seed` ni `preparar-demo` con la base de
+producción: las pruebas pueden recrear tablas y los comandos de demo
+están bloqueados en producción.
+
+## Puesta en marcha local (desarrollo)
 
 ```sh
 python3 -m venv .venv
@@ -25,8 +46,9 @@ flask seed              # usuarios, canchas y horarios de prueba (idempotente)
 flask --app app run --host=0.0.0.0 --port=5000
 ```
 
-`--host=0.0.0.0` es necesario para que la app en un dispositivo Android real alcance
-el servidor; desde el emulador basta `127.0.0.1`.
+`--host=0.0.0.0` permite que el servidor reciba conexiones desde fuera del PC.
+El emulador Android usa `10.0.2.2` para llegar al localhost del PC;
+`127.0.0.1` dentro del emulador apunta al propio emulador.
 
 ### Demo local sin omitir la preparación
 
@@ -83,9 +105,10 @@ rm -f instance/goaltime.db && alembic upgrade head && flask seed-catalogo && fla
 Flask-SQLAlchemy la resuelve contra `app.instance_path`, así que el archivo vive en
 `backend/instance/goaltime.db` y nunca junto al código (que además está en `.gitignore`).
 
-En producción se cambia la variable y el resto no se toca:
-`DATABASE_URL=postgresql+psycopg://usuario:clave@host:5432/goaltime`. El driver
-(`psycopg`) ya está en `requirements.txt`; no hace falta en desarrollo ni en los tests.
+En producción se usa **la URI real de Session pooler**, no un host inventado:
+`postgresql+psycopg://postgres.PROJECT_REF:CLAVE_CODIFICADA@HOST_DEL_PANEL:5432/postgres?sslmode=require`.
+El driver (`psycopg`) está en `requirements.txt`. El valor nunca debe
+aparecer en el repositorio, un chat ni un APK.
 
 ### Con Docker
 
@@ -129,6 +152,7 @@ perfiles publicados por cuentas activas. No hay árbitros de demostración preca
 | Método | Ruta | Auth | Estado |
 |---|---|---|---|
 | GET | `/api/health` | — | ✅ |
+| GET | `/api/ready` | — | ✅ 200 si base/esquema/catálogos listos · 503 si no |
 | POST | `/api/register` | — | ✅ 201 · 400 · 409 |
 | POST | `/api/login` | — | ✅ 200 · 400 · 401 · 403 |
 | POST | `/api/logout` | JWT | ✅ 204 |
@@ -136,10 +160,10 @@ perfiles publicados por cuentas activas. No hay árbitros de demostración preca
 | GET | `/api/disponibilidad` | — | ✅ 200 · 400 · 404 (6 días, con `motivo`) |
 | POST | `/api/reservas` | JWT cliente | ✅ 201 · 400 · 401 · 403 · 404 · 409 · 422 · 500 |
 | GET | `/api/mis-reservas` | JWT cliente | ✅ 200 (propias, fecha descendente) · 401 · 403 |
-| POST | `/api/pagos/checkout` | JWT (dueño o admin) | ✅ 201 · 400 · 401 · 403 · 404 · 409 |
+| POST | `/api/pagos/checkout` | JWT (cliente titular de la reserva o admin) | ✅ 201 · 400 · 401 · 403 · 404 · 409 |
 | POST | `/api/pagos/webhook` | firma Stripe | ✅ 200 (`aplicado`) · 400 · 413 |
-| GET | `/api/pagos/{id}` | JWT (dueño o admin) | ✅ 200 · 401 · 403 · 404 |
-| POST | `/api/pagos/{id}/simular` | JWT (dueño o admin) | ✅ 200 · 400 · 401 · 403 · 404 — sólo con `PAGADORA=mock` |
+| GET | `/api/pagos/{id}` | JWT (cliente titular o admin) | ✅ 200 · 401 · 403 · 404 |
+| POST | `/api/pagos/{id}/simular` | JWT (cliente titular o admin) | ✅ 200 · 400 · 401 · 403 · 404 — sólo con `PAGADORA=mock` |
 | — | Gestión del dueño | `/api/gestion/*` (12 endpoints) | ✅ spec.md 3.4 |
 | — | Administración | `/api/usuarios`, `/api/reporte` | ✅ spec.md 3.5 |
 

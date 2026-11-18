@@ -1,8 +1,22 @@
 # GoalTime: piloto público con Railway + Supabase y APK sin teléfono
 
-Actualizado el 17 de noviembre de 2026. **Preparación del repositorio**, no prueba
-de que el servicio ya esté publicado. Faltan las cuentas, la conexión privada, el
-dominio real y la firma Android del titular. No se contrató ningún servicio.
+Actualizado el **18 de noviembre de 2026**. La API del piloto ya está desplegada en
+Railway y conectada a Supabase; se generó y probó un APK *release* en emulador.
+**No es una declaración de operación comercial ni disponibilidad garantizada.**
+No se han comprobado todos los recorridos en un teléfono físico.
+
+| Elemento | Estado verificado |
+|---|---|
+| Supabase | Proyecto dedicado `Goaltime` en organización `GoaltimeApk`; Data API desactivada por el titular. PostgreSQL remoto accesible desde la API |
+| Railway | Servicio `goaltime-flutter` con Root Directory `/backend`, Dockerfile y dominio `https://goaltime-flutter-production.up.railway.app` |
+| API | `/api/health` y `/api/ready` devolvieron `estado: ok`; `/api/canchas` mostró al menos una cancha activa al actualizar este documento |
+| Pagos | **Piloto simulado** (`PAGADORA=mock`, `ALLOW_MOCK_PAYMENTS=1`), sin cobros reales |
+| Android | APK firmado de 53,6 MB compilado sin teléfono; firma v2 y permiso `INTERNET` verificados. Cuenta cliente probada en emulador |
+| Pendiente | No hay evidencia de prueba integral de reserva/pago en teléfono físico, respaldos restaurados, monitoreo continuo ni operación comercial |
+
+El dominio público identifica la **API**, no una página web. La ruta `/` devuelve
+`404` por diseño. Prueba [`/api/ready`](https://goaltime-flutter-production.up.railway.app/api/ready)
+para consultar el estado actual; un `ok` histórico no promete que siga disponible.
 
 ## 1. Qué vamos a desplegar
 
@@ -14,10 +28,12 @@ Supabase se usa como base de datos PostgreSQL. Conservamos la autenticación JWT
 usuarios, permisos y reglas de Flask. **No usamos Supabase Auth, Edge Functions ni
 acceso directo desde Flutter a sus tablas.** No se necesitan claves Supabase en el APK.
 
-La aplicación deja de depender del portátil y de `adb reverse` cuando se recompila
-contra la URL pública y el backend queda alojado. La disponibilidad sigue dependiendo
-de los servicios contratados, sus cuotas y su operación; no existe una garantía de
-servicio ilimitado gratuito.
+El APK del piloto usa la URL HTTPS pública y **no depende del portátil encendido,
+de USB, de `adb reverse` ni del servidor Flask local**. El dispositivo sí requiere
+internet; si Railway o Supabase se detienen por créditos, pausa o incidencia, las
+consultas y reservas no funcionarán. No hay modo sin conexión ni garantía de
+servicio gratuito ilimitado. Los datos nuevos se guardan en Supabase, no en
+`backend/instance/goaltime.db`.
 
 ### Costos
 
@@ -37,11 +53,19 @@ de pago sin decidir el presupuesto.
    cercana a Railway y guardar la contraseña de la base en un gestor de contraseñas.
 2. Antes de cargar información, desactivar **Enable Data API** en Integrations → Data API.
    No la usamos y no queremos exponer tablas por REST/GraphQL.
-3. En **Connect**, copiar la cadena de **Session pooler** (puerto 5432) para conexión
+3. En **Connect → Direct → Session pooler → Type: URI**, copiar la cadena de
+   **Session pooler** (puerto 5432) para conexión
    IPv4 desde un backend persistente. Copiar host, usuario y puerto literalmente del
    panel: el usuario suele ser `postgres.PROJECT_REF`, no simplemente `postgres`.
-4. Codificar los caracteres reservados de la contraseña como parte de la URL. No pegar
-   la contraseña aquí en el chat ni en un archivo versionado.
+4. Codificar la contraseña como parte de la URL. En PowerShell, ejecutar:
+
+   ```powershell
+   py -c 'import getpass, urllib.parse; print(urllib.parse.quote(getpass.getpass(), safe=str()))'
+   ```
+
+   La pide sin eco y muestra la versión codificada en la terminal local. Ese resultado
+   **también es un secreto**. Sustituir **todo** `[YOUR-PASSWORD]`, incluidos los
+   corchetes. No pegar la contraseña ni la URL en chats o archivos versionados.
 5. La variable privada del backend queda con este formato:
 
 ```text
@@ -95,14 +119,16 @@ validación y migración con respaldo previo; esta entrega no lo ejecuta.
 | `JWT_SECRET_KEY` | Secreto aleatorio propio, mínimo 32 caracteres |
 | `APP_URL_BASE` | `https://TU_DOMINIO_REAL.up.railway.app`, sin `/api` |
 | `CORS_ORIGINS` | El origen HTTPS anterior; configurar otros solo si hay frontend web |
+| `PORT` | `5000` si Railway pidió elegir ese puerto al generar el dominio; debe coincidir con el puerto objetivo del dominio |
 | `WEB_CONCURRENCY` | `1` inicialmente |
 | `LLM_PROVEEDOR` | `mock` para empezar sin proveedor externo |
+| `PAGADORA` / `ALLOW_MOCK_PAYMENTS` | `mock` / `1` **solo para un piloto sin cobros reales** |
 
 Generar el secreto localmente: `python -c "import secrets; print(secrets.token_hex(32))"`.
 Guardar el resultado solo en Railway. Rotarlo cierra la validez de los JWT anteriores.
 
-Para un **piloto sin cobros reales**, configurar `PAGADORA=mock` y
-`ALLOW_MOCK_PAYMENTS=1` explícitamente. Eso habilita simulaciones de pago que pueden
+Para un **piloto sin cobros reales**, `PAGADORA=mock` y
+`ALLOW_MOCK_PAYMENTS=1` habilitan simulaciones de pago que pueden
 confirmar reservas: no presentarlo como una pasarela real ni usarlo para ventas reales.
 Para cobrar, usar `PAGADORA=stripe`, configurar claves y webhook HTTPS, y comprobar el
 flujo con Stripe. Cambiar una variable no es certificación de operación comercial.
@@ -131,16 +157,36 @@ https://TU_DOMINIO_REAL.up.railway.app/api/ready
 Railway está configurado para usar `/api/ready` al activar un despliegue. Sus
 healthchecks de despliegue **no son monitoreo continuo**: eso sigue pendiente.
 
-En la consola del servicio desplegado, crear el administrador una vez:
+### Primer administrador y primera cancha
 
-```text
-flask --app app crear-admin
-```
+La instalación remota **no carga canchas ni cuentas de demostración**. El registro
+público solo crea `cliente` o `arbitro`; no puede autoasignarse el rol de dueño ni
+el de administrador. Para habilitar el catálogo:
 
-El comando pide nombre, correo y una contraseña (mínimo 12 caracteres, oculta y
-confirmada). No reutilizar las cuentas `@goaltime.test`. No pasar la contraseña en
-argumentos públicos ni subirla al repositorio. Para dar de alta dueños, registrar sus
-cuentas y asignarles el rol desde administración. Árbitros pueden registrarse como tales.
+1. Abrir **Railway → servicio → Console** (el contenedor activo) y crear el
+   primer administrador una sola vez:
+
+   ```text
+   flask --app app crear-admin
+   ```
+
+   El comando pide nombre, un correo **que no esté registrado** y una contraseña
+   nueva (mínimo 12 caracteres, oculta y confirmada). Nunca pasar la contraseña
+   como argumento ni capturarla en pantalla. No usar cuentas `@goaltime.test`.
+2. Entrar en la app con esa cuenta de administrador. En **Usuarios**, tocar la
+   cuenta de cliente que gestionará la cancha y elegir **Cambiar rol → Dueño**.
+3. Cerrar la sesión y volver a entrar como dueño para renovar el rol del token.
+   En **Mis canchas → Nueva cancha**, indicar nombre y ubicación. En la tarjeta
+   creada, añadir **Horarios**, días, horas y tarifas; sin horarios no hay turnos
+   reservables.
+4. Entrar con una cuenta cliente y refrescar **Canchas**. No transformar en
+   dueño la única cuenta cliente si también necesitas probar reservas: usa otra
+   cuenta cliente para ese recorrido.
+
+Se verificó que el catálogo público contiene una cancha; **no se registró en
+esta documentación la ejecución del comando de creación de administrador ni
+una prueba integral de reserva**. Si ya existe el administrador, no crees otro
+por rutina. Los árbitros pueden registrarse como tales.
 
 **Nunca ejecutar `pytest` con la base de producción:** algunas pruebas borran tablas
 de su base de tests. Usar una base de pruebas aislada.
@@ -193,6 +239,10 @@ flutter build apk --release --dart-define=API_BASE_URL=https://TU_DOMINIO_REAL.u
 ```
 
 Resultado: `build/app/outputs/flutter-apk/app-release.apk`.
+El archivo se puede copiar o renombrar (por ejemplo, `GoalTime.apk`) sin cambiar
+firma, nombre instalado ni código; **no mover ni publicar el keystore**. Para
+distribuir una actualización, mantener el mismo keystore y aumentar
+versión/build en `pubspec.yaml`.
 Con `--split-per-abi` en el script se generan APK más pequeños por arquitectura;
 el universal es más sencillo para compartir entre distintos Android.
 
@@ -207,13 +257,18 @@ lo que corresponda. Los datos remotos no se trasladan entre bases por reinstalar
 
 ### Prueba de aceptación
 
-1. Compartir e instalar el APK, sin conectar USB.
+1. Compartir **solo el APK** con participantes concretos del piloto (Drive/OneDrive
+   con acceso restringido), descargarlo e instalarlo en Android. La compilación
+   no necesita USB; un emulador también puede instalar el APK.
 2. Apagar el backend local y probar con datos móviles, no solo la Wi-Fi del portátil.
 3. Registrar cliente y árbitro; crear equipo/jugador y editarlo; publicar/ocultar perfil.
 4. Cerrar y abrir la app y comprobar persistencia en la base remota.
 5. Probar dos cuentas: no deben ver/editar equipos ajenos.
 6. Verificar reservas y pagos de acuerdo con el modo seleccionado.
 7. Revisar pantallas con texto grande, teclado abierto y conexión interrumpida.
+
+Al 18/11/2026 se verificaron la compilación firmada y un registro/uso de cliente
+en emulador. **Los demás pasos no se marcan como completados** sin evidencia.
 
 ## 6. Si falla
 
@@ -222,6 +277,9 @@ lo que corresponda. Los datos remotos no se trasladan entre bases por reinstalar
 | No conecta desde el APK | URL compilada HTTPS, `/api/ready` desde datos móviles, cuotas y estado del servicio |
 | `ready` devuelve 503 | Logs de Railway, conexión/contraseña Supabase, SSL, host/usuario del mismo pooler y migraciones |
 | Railway no arranca | Root Directory, variables completas, puerto `PORT`, DEBUG=0 y secreto válido |
+| `ECIRCUITBREAKER` al conectar Supabase | Detener reintentos: el pooler bloquea temporalmente tras muchos fallos. Copiar **la URI completa de Session pooler**, usuario `postgres.PROJECT_REF`, puerto 5432, contraseña codificada una sola vez y **sin corchetes**. Tras corregirla, esperar a que caduque el bloqueo antes de reintentar |
+| La raíz `/` muestra `404` | Normal: la API no sirve una página web. Probar `/api/ready` |
+| Catálogo vacío | No se copió el seed local. Crear admin, asignar dueño, publicar cancha y añadir horarios; no ejecutar `flask seed` en producción |
 | Supabase bloquea filas | Flask debe usar su conexión privada propietaria; no `anon` ni una clave pública |
 | Release no compila | Firma, alias/rutas y URL real; no quitar validaciones para forzarlo |
 | No se instala sobre la app anterior | Firma distinta o versión inferior; no borrar datos sin revisar |
@@ -237,12 +295,37 @@ alta disponibilidad. Quedan por configurar/verificar: respaldos y restauración,
 monitoreo continuo y alertas, límites de solicitudes, revocación de sesiones,
 consentimiento/política de datos personales, presupuesto y pruebas de carga.
 No se han diagnosticado todos los errores visuales intermitentes: hacen falta ejemplos.
+Una contraseña SQL que haya aparecido en un chat, captura o repositorio se debe
+**rotar inmediatamente**, actualizar en Railway y evitar intentos repetidos con
+la antigua. No se documentan credenciales ni cadenas de conexión reales.
 
 Fuentes: [Railway healthchecks](https://docs.railway.com/guides/healthchecks),
 [Supabase conexiones](https://supabase.com/docs/guides/database/connecting-to-postgres),
 [Supabase seguridad de Data API](https://supabase.com/docs/guides/api/securing-your-api).
 
-## 8. Evidencia local de esta preparación
+## 8. Evidencia y alcance de las comprobaciones
+
+**Nueva evidencia (17–18/11/2026):**
+
+- Tras corregir los relojes del backend, **439** pruebas Python pasaron en la
+  máquina de desarrollo. La corrección del Dockerfile añadió una prueba
+  estática adicional; los cuatro jobs del CI (SQLite, PostgreSQL con
+  migraciones, Flutter y contrato real) acabaron en verde al integrar el PR #2
+  en `main`. [Ver ejecuciones](https://github.com/Adrixn1140/goaltime-flutter/actions).
+- La API pública respondió `estado: ok` en `/api/health` y `/api/ready`, y
+  devolvió al menos una cancha activa en `/api/canchas`. Esto prueba una
+  consulta remota al esquema y catálogo preparados, no todo el flujo de pago.
+- `py tool/compilar_apk.py --api-url https://goaltime-flutter-production.up.railway.app`
+  construyó un APK
+  *release* de **53,6 MB sin dispositivo conectado**. `apksigner verify`
+  confirmó firma v2 (un firmante) y `aapt dump permissions` confirmó
+  `android.permission.INTERNET`. El titular creó y respaldó el keystore;
+  contraseñas y certificado no se publican.
+- El titular instaló el APK en emulador Android, creó una cuenta cliente y
+  vio el estado de catálogo vacío. Posteriormente la API remota mostró al
+  menos una cancha. No consta que el cliente la haya reservado o pagado.
+
+**Registro histórico anterior, 17/11/2026 (no describe el estado actual):**
 
 Comprobado en Windows el 17/11/2026:
 
@@ -258,10 +341,10 @@ Comprobado en Windows el 17/11/2026:
   local de desarrollo: **no es el APK de producción**.
 - Tarea Gradle `:app:validateProductionRelease`: rechaza la compilación por ausencia
   de `android/key.properties`, como se diseñó. No se generó ni sobrescribió un keystore.
-- PostgreSQL/Supabase/Railway no se probaron en vivo: todavía no hay proyectos creados
-  y el Docker local no está arrancado. La migración RLS se verificó con pruebas de SQL
-  y cobertura de tablas, no con una cuenta remota. Falta verificarlo al desplegar.
+- En esa fecha, PostgreSQL/Supabase/Railway aún no se habían probado en vivo. La
+  migración RLS se había verificado con pruebas de SQL y cobertura de tablas,
+  no con una cuenta remota; después se desplegó el esquema en Supabase.
 
-Bloqueos reales pendientes: crear proyectos, configurar secretos en Railway, comprobar
-la API pública, crear/recuperar y respaldar la firma, compilar release e instalar/probar
-el APK con datos móviles. No se creó una URL ficticia ni se contrató alojamiento.
+En ese corte todavía faltaban proyectos, API pública, firma y APK; **esos pasos
+ya se realizaron**. Permanecen las comprobaciones y medidas operativas del
+apartado 7.

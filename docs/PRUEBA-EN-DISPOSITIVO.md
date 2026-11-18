@@ -1,5 +1,13 @@
 # Por qué probar la app cuesta: los tres bloqueos
 
+> **Registro histórico de problemas de la demo local, no guía del APK
+> público actual.** En noviembre de 2026 se compiló un APK firmado con
+> permiso `INTERNET` y API HTTPS en Railway, y se probó el registro de un
+> cliente en emulador. Ya no necesita USB ni backend en el portátil;
+> consulta [PRODUCCION.md](PRODUCCION.md) para pruebas vigentes. Las
+> instrucciones antiguas para compilar *release* con IP HTTP local ya no
+> funcionan con las validaciones actuales.
+
 Este documento es la referencia técnica de **qué impide que la app funcione en un
 dispositivo y cómo se diagnostica**. Para instalar y levantar el proyecto, empezar por
 [`PUTA-EN-MARCHA.md`](PUTA-EN-MARCHA.md); aquí no se repite el arranque.

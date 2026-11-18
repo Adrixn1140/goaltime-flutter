@@ -1,5 +1,10 @@
 # Puesta en marcha en otro equipo
 
+> **Esta guía es de desarrollo local (histórico, septiembre/octubre 2026).**
+> El piloto desplegado usa Railway + Supabase; para construir el APK firmado
+> sin teléfono y conectar por HTTPS, sigue [PRODUCCION.md](PRODUCCION.md).
+> No ejecutes `flask seed` ni conectes la suite de pruebas a Supabase.
+
 Guía para ejecutar GoalTime completo en una PC que no es donde se construyó. Está pensada
 para llegar con la máquina vacía y no haber visto el proyecto antes. Al final de cada fase
 hay una **verificación**: si pasa, esa fase está hecha. No sigas sin comprobar.
