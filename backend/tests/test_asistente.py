@@ -15,12 +15,12 @@ Lo que se verifica, y por qué es lo importante:
 - Los **códigos de §3.6**: 400, 401, 403, 422 y 502.
 """
 
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 
 import pytest
 
 from blueprints.asistente import LIMITE_SUGERENCIAS
-from dominio.disponibilidad import FRANJA_NOCHE
+from dominio.disponibilidad import FRANJA_NOCHE, ahora_cancha
 from extensions import db
 from models import ESTADO_CONFIRMADA, Horario, Reserva
 from motores import obtener_motor
@@ -96,7 +96,7 @@ def _reservar(horario, fecha, cliente):
 
 
 def _manana():
-    return date.today() + timedelta(days=1)
+    return ahora_cancha().date() + timedelta(days=1)
 
 
 def _post(client, token, mensaje):
@@ -161,20 +161,28 @@ def test_slot_ocupado_no_se_sugiere(client, token_cliente, app, cancha, dueno, c
     assert datos["respuesta"]
 
 
-def test_slot_transcurrido_no_se_sugiere(client, token_cliente, app, cancha, dueno):
+def test_slot_transcurrido_no_se_sugiere(client, token_cliente, app, cancha, dueno, monkeypatch):
     """Un horario de hoy cuya hora ya pasó no se sugiere.
 
     Los fixtures de este archivo usan una fecha de mañana justamente para no depender de la
     hora del reloj, así que este caso necesita un caso hecho a mano.
     """
-    ahora = date.today()
-    # Un horario que empezó hace media hora: siempre en el pasado, sea cual sea la hora.
-    if ahora.weekday() in range(7):
-        _crear_horario(cancha, ahora.weekday(), (0, 0), (0, 1))
+    hoy = date(2026, 11, 17)
+    monkeypatch.setattr("dominio.disponibilidad.ahora_cancha", lambda: datetime(2026, 11, 17, 12, 0))
+    monkeypatch.setattr("motores.mock.ahora_cancha", lambda: datetime(2026, 11, 17, 12, 0))
+    _crear_horario(cancha, hoy.weekday(), (0, 0), (0, 1))
 
     datos = _post(client, token_cliente, "quiero jugar hoy").get_json()
     for sugerencia in datos["sugerencias"]:
         assert sugerencia["hora_inicio"] != "00:00"
+
+
+def test_motor_mock_usa_el_mismo_hoy_que_disponibilidad(monkeypatch):
+    # UTC ya cambió de fecha, pero en la cancha todavía es el día anterior.
+    momento = datetime(2026, 11, 16, 21, 0)
+    monkeypatch.setattr("motores.mock.ahora_cancha", lambda: momento)
+    assert MockMotor().interpretar("quiero jugar hoy").argumentos["fecha"] == "2026-11-16"
+    assert MockMotor().interpretar("quiero jugar mañana").argumentos["fecha"] == "2026-11-17"
 
 
 def test_cancha_inexistente_no_produce_sugerencias(

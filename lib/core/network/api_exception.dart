@@ -30,7 +30,11 @@ class ApiException implements Exception {
         accionSugerida: _accion(codigo),
       );
     }
-    return ApiException(status ?? 0, _generico(status), accionSugerida: _accion(status));
+    return ApiException(
+      status ?? 0,
+      _generico(status),
+      accionSugerida: _accion(status),
+    );
   }
 
   /// Traduce cualquier fallo de [dio] al error que la pantalla debe mostrar.
@@ -57,9 +61,15 @@ class ApiException implements Exception {
       DioExceptionType.connectionError => ApiException(
         0,
         'No pudimos conectar con el servidor.',
-        accionSugerida: 'Verifica que estés en la misma red e inténtalo de nuevo.',
+        accionSugerida:
+            'Verifica que estés en la misma red e inténtalo de nuevo.',
       ),
       DioExceptionType.cancel => ApiException(0, 'La operación se canceló.'),
+      DioExceptionType.badCertificate => ApiException(
+        0,
+        'No pudimos verificar la conexión segura con el servidor.',
+        accionSugerida: 'Revisa la fecha del dispositivo o informa al soporte. No omitas la verificación del certificado.',
+      ),
       _ => ApiException(
         0,
         'Ocurrió un problema inesperado.',
@@ -82,10 +92,12 @@ class ApiException implements Exception {
   bool get esReglaNegocio => codigo == 422;
 
   /// `true` si vale la pena reintentar sin cambiar nada.
-  bool get esReintentable => codigo >= 500 || (codigo == 0 && accionSugerida != null);
+  bool get esReintentable =>
+      codigo >= 500 || (codigo == 0 && accionSugerida != null);
 
   /// Texto completo para un `SnackBar`: mensaje + siguiente paso cuando existe.
-  String get texto => accionSugerida == null ? mensaje : '$mensaje $accionSugerida';
+  String get texto =>
+      accionSugerida == null ? mensaje : '$mensaje $accionSugerida';
 
   @override
   String toString() => 'ApiException($codigo): $mensaje';
@@ -107,6 +119,7 @@ class ApiException implements Exception {
     413 => 'El contenido enviado supera el tamaño permitido.',
     422 => 'Los datos enviados no son válidos.',
     500 => 'El servidor tuvo un problema.',
+    503 => 'El servicio está temporalmente no disponible.',
     _ => 'No pudimos completar la operación.',
   };
 
@@ -119,6 +132,7 @@ class ApiException implements Exception {
     // no puede mencionar "disponibilidad": tiene que valer para los tres.
     409 => 'Actualiza la lista y revisa el estado actual.',
     422 => 'Revisa los datos e inténtalo de nuevo.',
+    503 => 'Espera un momento e inténtalo de nuevo.',
     _ => null,
   };
 }

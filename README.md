@@ -32,6 +32,9 @@ contrato de construcción (no de migración).
 
 ## Documentación (entregables del curso)
 
+- **[Producción: Railway + Supabase y APK sin teléfono](docs/PRODUCCION.md)** — Preparación,
+  variables privadas, firma Android, costos, despliegue y comprobaciones pendientes.
+
 - [`docs/spec.md`](docs/spec.md) — Especificación *spec-driven*: contrato de API, catálogos, restricciones y criterios de aceptación
 - [`docs/heuristics.md`](docs/heuristics.md) — Evaluación heurística (Nielsen) + guía de diseño trazable
 - **[`docs/PUTA-EN-MARCHA.md`](docs/PUTA-EN-MARCHA.md)** — **Empieza aquí si vas a ejecutar el proyecto:** cuatro fases con su verificación, para un equipo nuevo

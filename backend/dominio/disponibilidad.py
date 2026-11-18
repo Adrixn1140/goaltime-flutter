@@ -20,7 +20,7 @@ comportamiento anterior y siguen pasando sin modificarse.
 """
 
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from dominio.errores import DominioInvalido, FranjaInvalida
 from extensions import db
@@ -39,6 +39,16 @@ PATRON_HORA = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 MOTIVO_OCUPADO = "ocupado"
 MOTIVO_TRANSCURRIDO = "transcurrido"
+
+# GoalTime opera en Riohacha (Colombia), UTC-5 sin horario de verano. El servidor
+# de Railway/CI puede estar en UTC: su fecha y hora local no son las de la cancha.
+HUSO_CANCHA = timezone(timedelta(hours=-5))
+
+
+def ahora_cancha(utc=None):
+    """Fecha y hora de la cancha, independientemente del huso del servidor."""
+    return (utc if utc is not None else datetime.now(timezone.utc)).astimezone(HUSO_CANCHA)
+
 
 #: Límites de franja del asistente (spec.md 3.6). **Definidos aquí porque §3.2 no los
 #: define**: la spec llama a `franja` un "filtro de §3.2" y §3.2 no tiene ninguno, así que
@@ -78,7 +88,7 @@ def parse_fecha(texto):
 def slot_vencido(fecha, hora_inicio, ahora=None):
     """True si el slot ya no es seleccionable por hora: fecha pasada, o la hora de
     inicio del día en curso ya pasó."""
-    ahora = ahora or datetime.now()
+    ahora = ahora if ahora is not None else ahora_cancha()
     if fecha < ahora.date():
         return True
     return fecha == ahora.date() and hora_inicio <= ahora.time()
@@ -219,7 +229,7 @@ def calcular_slots(cancha, fecha_inicio, franja=FRANJA_CUALQUIERA, ahora=None):
         ).all()
     }
 
-    ahora = ahora or datetime.now()
+    ahora = ahora if ahora is not None else ahora_cancha()
     slots = []
     for fecha in fechas:
         for horario in horarios:
@@ -271,7 +281,7 @@ def fecha_en_ventana(texto, hoy=None):
     fecha = parse_fecha(texto)
     if fecha is None:
         raise DominioInvalido(f"La fecha {texto!r} no tiene el formato YYYY-MM-DD.")
-    hoy = hoy or date.today()
+    hoy = hoy if hoy is not None else ahora_cancha().date()
     if not hoy <= fecha < hoy + timedelta(days=DIAS_VENTANA):
         ventana = ventana_de_fechas(hoy)
         raise DominioInvalido(

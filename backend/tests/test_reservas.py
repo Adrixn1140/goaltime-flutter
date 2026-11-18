@@ -8,7 +8,7 @@ Lo que se verifica aquí no es cada rama del código, sino las reglas de negocio
 * sólo un `cliente` reserva, y sólo ve sus propias reservas.
 """
 
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 
 import pytest
 from sqlalchemy import event
@@ -168,12 +168,17 @@ def test_fecha_pasada_422(client, token_cliente, cancha, horario):
     assert respuesta.status_code == 422
 
 
-def test_slot_transcurrido_hoy_422(client, token_cliente, cancha):
+def test_slot_transcurrido_hoy_422(client, token_cliente, cancha, monkeypatch):
     """Un horario de hoy cuya hora de inicio ya pasó se rechaza igual que en
     `/api/disponibilidad` (motivo `transcurrido`)."""
+    hoy = date(2026, 11, 17)
+    monkeypatch.setattr(
+        "dominio.disponibilidad.ahora_cancha",
+        lambda: datetime(2026, 11, 17, 12, 0),
+    )
     slot = Horario(
         cancha_id=cancha.id,
-        dia=date.today().weekday(),
+        dia=hoy.weekday(),
         hora_inicio=time(0, 1),
         hora_fin=time(0, 2),
         tarifa=30000,
@@ -181,7 +186,7 @@ def test_slot_transcurrido_hoy_422(client, token_cliente, cancha):
     db.session.add(slot)
     db.session.flush()
 
-    respuesta = _reservar(client, token_cliente, cancha.id, slot.id, date.today().isoformat())
+    respuesta = _reservar(client, token_cliente, cancha.id, slot.id, hoy.isoformat())
 
     assert respuesta.status_code == 422
     assert "disponible" in respuesta.get_json()["error"]["mensaje"]

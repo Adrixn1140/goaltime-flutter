@@ -1,4 +1,4 @@
-# GoalTime API en contenedor (spec.md 7.3).
+kmkjmxj sik mhigiuhuihi8y0h8efih# GoalTime API en contenedor (spec.md 7.3).
 #
 # 3.12 y no la 3.14 del venv local: es la versión con ruedas disponibles para todos los
 # paquetes pinneados, y una imagen que se construye siempre vale más que una que depende

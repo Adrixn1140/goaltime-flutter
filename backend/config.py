@@ -10,6 +10,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
+from deployment import normalizar_database_url
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -22,15 +23,16 @@ CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
 
 
 class Config:
+    GOALTIME_ENV = os.getenv("GOALTIME_ENV", "production" if os.getenv("RAILWAY_PROJECT_ID") else "development")
+    DEBUG = os.getenv("FLASK_DEBUG", "0").lower() in ("1", "true", "yes")
     SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-cambiar-en-produccion")
 
     #: Ruta **relativa** a propósito: Flask-SQLAlchemy resuelve las rutas relativas de
     #: SQLite contra `app.instance_path`, así el archivo cae en `backend/instance/` y
     #: nunca junto al código. Con una ruta absoluta el `rm -f instance/goaltime.db` del
     #: README no borraría la base real y aparecería una segunda.
-    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///goaltime.db")
+    SQLALCHEMY_DATABASE_URI = normalizar_database_url(os.getenv("DATABASE_URL", "sqlite:///goaltime.db"))
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
 
     JWT_SECRET_KEY = SECRET_KEY
     #: Se lee en **horas** y no en el `JWT_ACCESS_TOKEN_EXPIRES` de flask-jwt-extended
@@ -43,6 +45,7 @@ class Config:
     MAX_CONTENT_LENGTH = 64 * 1024
 
     PAGADORA = os.getenv("PAGADORA", "mock")
+    ALLOW_MOCK_PAYMENTS = os.getenv("ALLOW_MOCK_PAYMENTS", "0") == "1"
     STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
     STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
     STRIPE_CURRENCY = os.getenv("STRIPE_CURRENCY", "cop")
@@ -81,6 +84,8 @@ class Config:
 
 
 class TestConfig(Config):
+    GOALTIME_ENV = "test"
+    DEBUG = False
     TESTING = True
     #: SQLite en memoria por omisión, porque `pytest` no debe depender de nada instalado.
     #:
@@ -90,7 +95,7 @@ class TestConfig(Config):
     #: sobre SQLite no prueba nada, y es peor que no tener ese job: da confianza que no
     #: está ganada. Con esta variable el job de PostgreSQL de `.github/workflows/ci.yml`
     #: corre la suite completa de verdad.
-    SQLALCHEMY_DATABASE_URI = os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")
+    SQLALCHEMY_DATABASE_URI = normalizar_database_url(os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:"))
     JWT_SECRET_KEY = "test-secret-goaltime-suficientemente-largo"
     PAGADORA = "mock"
     #: El asistente se prueba contra el motor `mock` y **nunca** contra un proveedor real:

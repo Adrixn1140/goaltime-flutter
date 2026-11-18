@@ -302,7 +302,10 @@ class _TarjetaSugerencia extends StatelessWidget {
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 4),
-            Row(
+            Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
                   formatoMonto(sugerencia.tarifa),
@@ -310,7 +313,6 @@ class _TarjetaSugerencia extends StatelessWidget {
                     color: theme.colorScheme.primary,
                   ),
                 ),
-                const Spacer(),
                 FilledButton.tonal(
                   onPressed: alReservar,
                   style: FilledButton.styleFrom(

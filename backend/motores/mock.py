@@ -14,8 +14,9 @@ alguien tiene que decidir si esa capacidad llega al modelo de verdad.
 """
 
 import re
-from datetime import date, timedelta
+from datetime import timedelta
 
+from dominio.disponibilidad import ahora_cancha
 from motores.base import (
     HERRAMIENTA_BUSCAR,
     MotorLLM,
@@ -56,7 +57,7 @@ class MockMotor(MotorLLM):
         self._hoy = hoy
 
     def _fecha_hoy(self):
-        return self._hoy or date.today()
+        return self._hoy if self._hoy is not None else ahora_cancha().date()
 
     def interpretar(self, mensaje):
         if not isinstance(mensaje, str) or not mensaje.strip():

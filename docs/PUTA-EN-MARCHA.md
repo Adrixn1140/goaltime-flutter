@@ -302,8 +302,10 @@ en el APK del 29 de septiembre**: `flutter build apk --release` no declara `andr
 de red. Está corregido y versionado. La explicación completa, con el dato de por qué, está
 en [`PRUEBA-EN-DISPOSITIVO.md`](PRUEBA-EN-DISPOSITIVO.md#1-el-apk-de-release-no-trae-permiso-internet).
 
-La firma de release cae a la de debug si no existe `android/key.properties`, que **no se
-versiona**. Así un repo recién clonado construye sin pasos extra.
+**Cambio del 17 de noviembre de 2026:** release ya no usa debug como firma de reserva.
+Requiere `android/key.properties`, un keystore propio y `API_BASE_URL` HTTPS pública.
+Debug sigue compilando sin ese archivo. Para publicar y compilar sin teléfono, sigue
+[`PRODUCCION.md`](PRODUCCION.md); las instrucciones locales anteriores son para debug.
 
 ### 3. Instalar en un teléfono
 
