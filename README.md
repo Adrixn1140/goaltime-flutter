@@ -1,194 +1,119 @@
 # GoalTime
 
-Sistema de **reservas de canchas sintéticas** (Riohacha, Colombia). Proyecto de
-asignatura de desarrollo móvil: app **Flutter (Android/iOS)** + **API REST propia**
-construida con **Flask + SQLAlchemy** en este mismo repositorio.
+Aplicación Flutter de reservas de canchas sintéticas para Riohacha (Colombia),
+con API propia en Flask. El **piloto Android** conecta por HTTPS con la API en
+Railway; la API guarda los datos en PostgreSQL de Supabase.
 
-**Multi-rol**: `Cliente` (reservas/equipos), `Dueño` (gestiona sus canchas),
-`Árbitro` (publica su perfil y tarifa) y `Admin` (gestión global).
+```text
+APK Flutter ──HTTPS──> Flask en Railway ──PostgreSQL/SSL──> Supabase
+```
 
-## Trazabilidad
+**Estado al 18 de noviembre de 2026:** el servicio [responde en
+`/api/ready`](https://goaltime-flutter-production.up.railway.app/api/ready),
+la base remota contiene al menos una cancha visible y se compiló un APK
+*release* firmado sin conectar un teléfono. Se registró y usó una cuenta
+cliente en un **emulador Android**. No consta una prueba completa de
+reservas/pagos en un teléfono físico, ni una auditoría para operación comercial.
+El APK actual es para **piloto con pagos simulados**, no para cobrar dinero.
+El estado del servicio puede cambiar: compruébalo antes de una demostración.
 
-La v0 de la spec apuntaba a una API ya existente (`goaltime-app.onrender.com`). Al
-implementar se verificó que **ese backend no es recuperable**: el repositorio asociado
-era una app React + Firebase, sin `api.py` ni despliegue configurado, y el servicio de
-Render respondía HTTP 503. No hay código que migrar: el backend se construye desde cero
-en [`backend/`](backend/) siguiendo [`docs/spec.md`](docs/spec.md), que pasa a ser el
-contrato de construcción (no de migración).
+## Qué hace
 
-## Stack
-
-| Capa | Tecnología |
+| Rol | Funciones |
 |---|---|
-| App | Flutter 3 (Android/iOS) — Material 3 |
-| Estado | Riverpod |
-| Navegación | go_router (shells por rol) |
-| Red | dio + interceptor JWT |
-| Backend | Flask 3 + Flask-SQLAlchemy + flask-jwt-extended + Alembic |
-| Base de datos | SQLite en desarrollo · PostgreSQL 16 en producción (misma capa de modelos) |
-| Servidor | gunicorn detrás del `docker compose` |
-| CI | GitHub Actions: pytest, PostgreSQL con migraciones, `flutter analyze`/`test` y contrato real |
-| Pago | Stripe Checkout + webhook (modo test) tras interfaz `PasarelaPago` |
+| Cliente | Registro/inicio de sesión, catálogo, disponibilidad, reservas, pagos de prueba, equipos y jugadores, asistente |
+| Dueño | Crea/edita canchas y horarios, consulta sus reservas |
+| Árbitro | Registro, perfil, disponibilidad y tarifa publicados en el directorio |
+| Administrador | Usuarios y roles, activación/desactivación y reportes |
 
-## Documentación (entregables del curso)
+El registro público solo crea **clientes o árbitros**. Para crear canchas se
+necesita un **dueño**: un administrador asigna ese rol a una cuenta existente.
+La base nueva no importa automáticamente los usuarios ni las canchas de la demo local.
+Consulta [cómo habilitar el primer dueño y publicar una cancha](docs/PRODUCCION.md#primer-administrador-y-primera-cancha).
 
-- **[Producción: Railway + Supabase y APK sin teléfono](docs/PRODUCCION.md)** — Preparación,
-  variables privadas, firma Android, costos, despliegue y comprobaciones pendientes.
+## Ponerlo en marcha
 
-- [`docs/spec.md`](docs/spec.md) — Especificación *spec-driven*: contrato de API, catálogos, restricciones y criterios de aceptación
-- [`docs/heuristics.md`](docs/heuristics.md) — Evaluación heurística (Nielsen) + guía de diseño trazable
-- **[`docs/PUTA-EN-MARCHA.md`](docs/PUTA-EN-MARCHA.md)** — **Empieza aquí si vas a ejecutar el proyecto:** cuatro fases con su verificación, para un equipo nuevo
-- [`docs/ESTADO.md`](docs/ESTADO.md) — Qué está construido y qué está comprobado, con la evidencia de verificación y los huecos conocidos
-- [`docs/PLAN.md`](docs/PLAN.md) — Qué falta por construir, en qué orden y con qué riesgo de hardware
-- [`docs/ENTORNO.md`](docs/ENTORNO.md) — Versiones exactas e instalación paso a paso para ejecutar el proyecto en Linux, Windows o macOS
-- [`docs/PRUEBA-EN-DISPOSITIVO.md`](docs/PRUEBA-EN-DISPOSITIVO.md) — Cómo probar la app en un teléfono real y en el emulador, en otra PC, con los tres bloqueos que hacen perder una tarde
-- [`backend/README.md`](backend/README.md) — Cómo correr la API, variables de entorno y datos de prueba
-- [`docs/EQUIPOS.md`](docs/EQUIPOS.md) — Avance de equipos y jugadores, privacidad, demostración y próximos pasos hacia torneos
-- [`docs/ARBITROS.md`](docs/ARBITROS.md) — Gestión de plantillas, cuentas y perfiles arbitrales, directorio con tarifas y asistente ampliado
+### Piloto desplegado
 
-## Estructura
+- [Guía de producción/piloto](docs/PRODUCCION.md): Supabase, Railway, secretos,
+  dominio, firma Android, APK, comprobaciones y límites del plan.
+- URL pública de la API (no es una página web):
+  `https://goaltime-flutter-production.up.railway.app`.
+  `/api/health` comprueba el proceso; `/api/ready` también comprueba tablas y
+  catálogos. La ruta `/` responde **404 por diseño**.
+- El archivo firmado construido localmente se llamó `app-release.apk` y se
+  renombró a `GoalTime.apk` para compartirlo. El APK **no se versiona en GitHub**.
+  Cambiar el nombre del archivo no cambia el nombre de la aplicación instalada.
+- Para recompilar **sin emulador ni teléfono conectado**, con firma privada local
+  y la API lista:
 
+  ```powershell
+  flutter pub get
+  py tool/compilar_apk.py --api-url https://goaltime-flutter-production.up.railway.app
+  ```
+
+  El resultado nuevo se genera en `build/app/outputs/flutter-apk/app-release.apk`.
+  El script exige `android/key.properties`, un keystore propio y respuesta válida
+  de `/api/ready`. **No crees otra firma** si ya distribuiste el APK del piloto:
+  las actualizaciones requieren la misma clave. No subas `key.properties`,
+  `.jks`, `.env`, contraseñas ni URI de la base.
+
+### Desarrollo local (separado del piloto)
+
+La guía [de puesta en marcha local](docs/PUTA-EN-MARCHA.md) y
+[`backend/README.md`](backend/README.md) explican SQLite, demo y Docker Compose.
+`tool/iniciar_demo.py` crea cuentas **solo de desarrollo**: nunca se ejecuta
+en Railway. El valor por defecto de Flutter (`http://10.0.2.2:5000`) es
+**solo para debug en el emulador**; el APK *release* lleva la URL HTTPS de
+Railway dentro del binario.
+
+```powershell
+# Tras configurar el backend de desarrollo y arrancarlo localmente:
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000
 ```
-lib/            app Flutter
-  core/         dio client + interceptor, tema M3, router, storage seguro
-  features/     auth · cliente (canchas/reservas/pago) · gestion (dueño) · usuarios (admin)
-  shared/       widgets, formato (fechas y moneda), utilidades
-backend/        API Flask
-  blueprints/   auth · canchas · disponibilidad · reservas · pagos · gestion · admin
-  pasarelas/    base · stripe_pasarela · mock_pasarela
-  migrations/   Alembic: el esquema lo gobierna aquí, no `create_all()`
-  tests/        pytest (auth, reglas de negocio, anti-drift)
-test/           pruebas de Flutter (modelos, formato y widget)
-  support/      fake_api.dart: Dio en memoria con el JSON del backend
-tool/           verificar_integracion.sh: backend real + contrato de la app
-.github/        CI: backend, PostgreSQL con migraciones, app y contrato
-```
 
-## Estado del proyecto
+### Pruebas y CI
 
-- [x] Repo + scaffolding Flutter (Android/iOS)
-- [x] Spec API v1 (contract-first) y evaluación heurística
-- [x] Fases de contrato cerradas: enums, restricciones, formato de error y flujo de pago
-- [x] Backend Flask: estructura, `/api/health` y auth (register/login/logout)
-- [x] Seed de datos de prueba
-- [x] Sesión 2: catálogo de canchas y disponibilidad de 6 días
-- [x] Sesión 3 (API): reservas atómicas con su pago, checkout, webhook firmado e idempotencia, con pasarela `mock` para correr sin claves
-- [x] Sesión 4 (app): módulo Cliente completo — login/registro reales con sesión persistente, catálogo, reserva con confirmación, pago (Stripe o simulado), "Mis reservas" con reintento y perfil con cierre de sesión
-- [x] Módulo Dueño (CRUD canchas/horarios, reservas propias)
-- [x] Módulo Admin (usuarios, reporte)
-- [x] Esquema con Alembic y contenedores (`docker compose` con PostgreSQL 16 y gunicorn)
-- [x] Verificación en cada push: backend, PostgreSQL con migraciones y anti-drift, app y contrato app ↔ backend real
-- [x] Una cuenta desactivada no conserva la sesión: un test parametrizado barre las 19 rutas protegidas, y `logout` es la única excepción deliberada
-- [x] Asistente de reserva por lenguaje natural — `POST /api/asistente` con motor `mock`/`ollama`/`gemini` (`LLM_PROVEEDOR`), chat en la app y sugerencias que preseleccionan la reserva. Especificado en [`spec.md` §3.6](docs/spec.md), construido en [`PLAN.md`](docs/PLAN.md) fases A y B
-- [ ] Capturas de la app en dispositivo real
-
-## Ejecutar el backend
-
-**Demo rápida:** después de instalar las dependencias del backend, ejecuta
-`backend\.venv\Scripts\python.exe tool\iniciar_demo.py` en Windows o
-`backend/.venv/bin/python tool/iniciar_demo.py` en Linux/macOS. Prepara la base y
-arranca el servidor sin borrar datos. Solo para desarrollo.
-
-```sh
+```powershell
+flutter analyze
+flutter test
 cd backend
-python3 -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env          # claves reales; .env no se versiona
-alembic upgrade head          # esquema
-flask seed-catalogo           # catálogos
-flask seed                    # usuarios, canchas y horarios de prueba
-flask --app app run --host=0.0.0.0 --port=5000
+.\.venv\Scripts\python.exe -m pytest -q
 ```
 
-O con contenedores, que es como se despliega:
+GitHub Actions comprueba backend con SQLite **y** PostgreSQL, migraciones
+con Alembic, Flutter y contrato app ↔ API real; los cuatro trabajos de
+[`main`](https://github.com/Adrixn1140/goaltime-flutter/actions) pasaron tras
+integrar la corrección de Dockerfile el 18/11/2026. SQLite agiliza pruebas
+locales; **Supabase PostgreSQL es la base del piloto**. No ejecutar `pytest`
+con credenciales de producción: algunas pruebas recrean tablas.
 
-```sh
-cp .env.compose.example .env  # en la raíz del repositorio
-docker compose up -d --build # migra y siembra al arrancar
-```
+## Operación y límites
 
-Con `PAGADORA=mock` (por defecto) el flujo de pago se recorre entero sin claves de
-Stripe: el checkout devuelve una URL ilustrativa y el pago se confirma con
-`POST /api/pagos/{id}/simular`. Detalle en [`backend/README.md`](backend/README.md).
+- Apagar el portátil **no apaga** la app ni la API: una instalación consulta
+  Railway y Supabase por internet. Sí necesita conexión en el dispositivo y
+  ambos servicios activos. Sin conexión, la app no funciona sincrónicamente;
+  no hay modo sin conexión ni garantía de alta disponibilidad.
+- Los planes gratuitos/de prueba tienen créditos, límites y posibles pausas.
+  Comprueba [Railway Pricing](https://railway.com/pricing) y
+  [Supabase Pricing](https://supabase.com/pricing) antes de invitar personas.
+  Créditos agotados o servicios pausados pueden dejar la API inaccesible.
+- En este piloto `PAGADORA=mock` y `ALLOW_MOCK_PAYMENTS=1`: **no hay cobro real**,
+  aunque una simulación puede confirmar una reserva. No solicites tarjetas ni
+  anuncies ventas. Stripe requiere un despliegue y pruebas separados.
+- Respaldos/restauración, monitoreo continuo, alertas, límites de tráfico,
+  privacidad de datos y prueba completa en teléfono físico siguen pendientes.
+  `ready` verifica el estado al consultarlo, no monitorea continuamente.
 
-## Ejecutar la app
+## Documentación
 
-```sh
-flutter pub get
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000   # emulador Android
-```
-
-| Destino | `API_BASE_URL` |
-|---|---|
-| Emulador Android | `http://10.0.2.2:5000` (valor por defecto) |
-| Dispositivo Android real (misma WiFi) | `http://<ip-del-pc>:5000` — ver `backend/README.md` |
-| iOS simulator | `http://localhost:5000` |
-
-El valor por defecto es `http://10.0.2.2:5000` porque `10.0.2.2` es el alias que usa el
-emulador de Android para alcanzar el `localhost` de la máquina. En un teléfono físico hay
-que pasar la IP de la máquina en la red local.
-
-## Pruebas
-
-```sh
-flutter analyze   # sin issues
-flutter test      # 105 pruebas: modelos, formato, sesión, auth, catálogo, reserva, pago, asistente, gestión del dueño y panel de admin
-cd backend && pytest -q   # 322 pruebas del backend (las mismas contra PostgreSQL, ver abajo)
-
-# El contrato de la app contra el backend real (levanta Docker, migra, siembra y baja):
-tool/verificar_integracion.sh
-```
-
-Todo eso en verde por última vez el **26 de septiembre de 2026**, con los cuatro jobs
-del CI en `main`. El detalle de qué se comprobó y con qué cifras, en
-[`docs/ESTADO.md`](docs/ESTADO.md#evidencia-de-verificación).
-
-Las pruebas de widget no tocan la red: `test/support/fake_api.dart` monta un `Dio` con un
-adaptador propio que responde con el mismo JSON del backend, y la sesión se guarda en un
-almacenamiento en memoria. Así se ejercitan los repositorios, los providers y las
-pantallas reales, no una copia de la lógica.
-
-Ese doble es una copia, así que hay algo que la vigila:
-`test/contrato_real_test.dart` habla con un backend de verdad —login, catálogo, reporte y
-los errores 401/404/422 pasando por `ApiException`— y se omite salvo que se le pase
-`GOALTIME_API_URL`. `tool/verificar_integracion.sh` se la pasa; en CI corre en cada push.
-
-## Recorrido del módulo Cliente
-
-1. `Iniciar sesión` o `Regístrate` seleccionando **Cliente**. Para ofrecer servicios,
-   selecciona **Árbitro**: su inicio lleva al perfil arbitral, no a las reservas.
-2. `Canchas`: catálogo con nombre, ubicación y precio "desde".
-3. Toca una cancha → tira de 6 días y slots; los ocupados y los ya pasados salen
-   deshabilitados con su motivo.
-4. `Reservar` → resumen con el precio que va a cobrar el backend → `Pagar ahora`.
-5. Con `PAGADORA=mock` aparecen "Simular pago aprobado/rechazado"; con Stripe, "Pagar con
-   tarjeta" abre el checkout en el navegador y la app consulta el estado al volver.
-6. `Mis reservas`: paga o reintenta sin repetir el flujo; `Perfil` cierra sesión.
-7. `Equipos`: crea un equipo y registra nombre, apellido, documento y celular de los
-   jugadores. Plantillas privadas y persistentes; usa datos ficticios en la demo.
-   Todavía no incluye torneos. Alcance y recorrido en [`docs/EQUIPOS.md`](docs/EQUIPOS.md).
-
-## Recorrido del módulo Dueño
-
-1. Inicia sesión con una cuenta de rol `dueño`; la app entra directo a `Mis canchas`.
-2. `Mis canchas`: lista sólo las tuyas, con cuántos horarios tiene cada una.
-3. Toca una cancha → hoja de acciones: `Horarios`, `Reservas`, `Editar datos` y
-   `Dar de baja`/`Reactivar`. Ninguna acción destructiva ocurre sin confirmar.
-4. `Horarios`: una tira por día de la semana, cada horario con su rango y tarifa.
-   Alta, edición y borrado con confirmación; el backend avisa si un horario tiene
-   reservas y por eso no se puede borrar.
-5. `Reservas`: quién reservó, fecha, estado del pago y qué se puede hacer. `Confirmar`
-   sólo aparece con pago aprobado; `Cancelar` avisa que no hay reembolso.
-6. `Perfil` cierra sesión y borra también lo que la app tenía en memoria de la gestión.
-
-## Recorrido del módulo Admin
-
-1. Inicia sesión con una cuenta de rol `admin`; la app entra directo a `Usuarios`.
-2. `Usuarios`: cada cuenta con su rol, si está activa y cuántos turnos y reservas tiene.
-3. Toca la tarjeta → `Cambiar rol` (cliente / dueño / administrador) o
-   `Activar`/`Desactivar cuenta`. Desactivar pide confirmación y avisa que el historial
-   se conserva; activar no la pide porque no es una acción destructiva.
-4. `Reporte`: ingresos cobrados, reservas y usuarios, con el desglose por cancha y por
-   día. Cada barra lleva su cifra, y si el desglose no sumara el total la app lo
-   advierte en vez de mostrar una gráfica que miente.
-5. `Perfil` cierra sesión y limpia la lista y el reporte de la memoria.
+- [Producción y piloto](docs/PRODUCCION.md) — configuración y diagnóstico actual.
+- [Estado verificado](docs/ESTADO.md) — actualización actual y evidencias
+  históricas fechadas.
+- [API y desarrollo local](backend/README.md).
+- [Especificación de API](docs/spec.md), [equipos](docs/EQUIPOS.md),
+  [árbitros y asistente](docs/ARBITROS.md), [optimización](docs/OPTIMIZACION.md).
+- [Puesta en marcha local](docs/PUTA-EN-MARCHA.md),
+  [entorno](docs/ENTORNO.md) y [pruebas en dispositivo](docs/PRUEBA-EN-DISPOSITIVO.md):
+  conservan registros históricos de la demo local; las instrucciones vigentes
+  del APK público están en `PRODUCCION.md`.

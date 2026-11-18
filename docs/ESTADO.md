@@ -1,5 +1,39 @@
 # Estado de la aplicación
 
+## Actualización — piloto Android, 18 de noviembre de 2026
+
+La API Flask ya se desplegó en Railway y utiliza PostgreSQL de Supabase
+con credenciales privadas y SSL;
+Flutter no consulta Supabase directamente. La ruta
+[`/api/ready`](https://goaltime-flutter-production.up.railway.app/api/ready)
+respondió `estado: ok`, y el catálogo público devolvió al menos una cancha.
+La Data API de Supabase está desactivada según lo configurado por el titular.
+
+Se compiló sin teléfono un APK *release* firmado (53,6 MB) con esa URL HTTPS;
+se verificaron firma v2 y permiso `INTERNET`. El titular informó haberlo
+instalado en un **emulador**, registrando una cuenta cliente y viendo la
+pantalla de catálogo (entonces vacía). Después la API pública devolvió al
+menos una cancha. Esto **no demuestra** un recorrido completo de reserva/pago en
+teléfono físico ni disponibilidad continua. El piloto tiene pagos **mock**:
+pueden confirmar reservas, pero no cobran dinero real.
+
+El flujo remoto no usa el seed local. El administrador se crea mediante
+`flask --app app crear-admin` en Railway y asigna el rol **dueño** a una
+cuenta registrada; el dueño publica canchas y horarios. No se documentó una
+ejecución verificada de ese comando. Para procedimientos y precauciones,
+consulta [`PRODUCCION.md`](PRODUCCION.md).
+
+Los cuatro trabajos de CI en `main` pasaron tras integrar el PR #2
+(backend SQLite, backend PostgreSQL con migraciones, app y contrato real).
+En local, antes del PR #2, pasaron 439 pruebas del backend; la nueva prueba
+estática de Dockerfile se comprobó con las pruebas de producción.
+
+**Lo que sigue abajo es un registro fechado de septiembre/octubre de 2026.**
+No debe leerse como estado vigente: sus cifras y afirmaciones sobre APK sin
+instalar, falta de API pública o firma debug de reserva son históricas.
+
+---
+
 **Snapshot al 1 de octubre de 2026.** No es un documento de contrato ni una
 especificación: el contrato es [`spec.md`](spec.md) y la evaluación de diseño es
 [`heuristics.md`](heuristics.md). Este archivo existe para responder, de una vez, *qué

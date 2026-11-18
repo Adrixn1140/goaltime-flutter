@@ -1,5 +1,11 @@
 # Plan de trabajo pendiente
 
+> **Registro histórico de planificación.** El piloto de noviembre de 2026
+> ya tiene API pública Railway, Supabase y APK firmado probado en emulador.
+> Las tareas antiguas que dicen que no existe el APK o que no se instaló se
+> refieren a la versión de septiembre. Estado y pendientes actuales:
+> [ESTADO.md](ESTADO.md) y [PRODUCCION.md](PRODUCCION.md).
+
 **Snapshot al 27 de septiembre de 2026.** Este documento es lo contrario de
 [`ESTADO.md`](ESTADO.md): aquel responde *qué está construido y qué está comprobado*; este
 responde *qué se va a construir, en qué orden y con qué riesgos*. El contrato sigue siendo
