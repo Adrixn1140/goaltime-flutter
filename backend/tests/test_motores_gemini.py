@@ -346,8 +346,8 @@ def test_la_fecha_de_hoy_viaja_en_el_prompt(monkeypatch):
     """Un modelo no sabe qué día es hoy: su reloj interno es el de sus datos de
     entrenamiento. La fecha real debe ir embebida en la primera vuelta, y esto es lo que
     hace que "mañana" caiga dentro de la ventana de 6 días en vez de dar un `422`."""
-    from datetime import date
+    from dominio.disponibilidad import ahora_cancha
 
-    hoy = date.today().isoformat()
+    hoy = ahora_cancha().date().isoformat()
     assert hoy in sistema_interpretar()
     assert "mañana" in sistema_interpretar()

@@ -210,9 +210,9 @@ def sistema_interpretar() -> str:
     es el único que la conoce de verdad: exactamente el mismo reparto que hace que el
     `horario_id` lo consulte la base y no lo invente el modelo.
     """
-    from datetime import date
+    from dominio.disponibilidad import ahora_cancha
 
-    hoy = date.today().isoformat()
+    hoy = ahora_cancha().date().isoformat()
     return (
         SYSTEM_PROMPT
         + "\n\nHoy es "
