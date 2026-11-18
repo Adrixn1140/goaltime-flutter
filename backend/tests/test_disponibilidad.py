@@ -4,7 +4,7 @@ Las pruebas de HTTP usan fechas futuras para no depender de la hora de ejecució
 regla de "slot transcurrido" se verifica de forma determinista sobre el helper.
 """
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 
 import pytest
 
@@ -12,6 +12,7 @@ from dominio.disponibilidad import (
     DIAS_VENTANA,
     MOTIVO_OCUPADO,
     MOTIVO_TRANSCURRIDO,
+    ahora_cancha,
     parse_fecha,
     slot_vencido,
 )
@@ -260,12 +261,21 @@ def test_slot_vencido(fecha, inicio, esperado):
     assert slot_vencido(fecha, inicio, ahora) is esperado
 
 
-def test_slots_de_hoy_ya_transcurridos_son_no_disponibles(app, client, cancha):
-    """Regla aplicada por el endpoint con el reloj real, sin depender del test."""
-    if datetime.now().time() < time(0, 2):
-        pytest.skip("la suite arrancó dentro del propio slot de prueba")
+def test_hora_de_cancha_no_depende_de_hora_utc_del_servidor():
+    # Cuando en UTC ya es martes, en Riohacha aún es lunes por la noche.
+    utc = datetime(2026, 11, 17, 2, 0, tzinfo=timezone.utc)
+    assert ahora_cancha(utc) == datetime(2026, 11, 16, 21, 0, tzinfo=timezone(timedelta(hours=-5)))
+    assert slot_vencido(date(2026, 11, 16), time(20, 0), ahora_cancha(utc))
+    assert not slot_vencido(date(2026, 11, 17), time(0, 0), ahora_cancha(utc))
 
-    hoy = date.today()
+
+def test_slots_de_hoy_ya_transcurridos_son_no_disponibles(app, client, cancha, monkeypatch):
+    """El endpoint usa la hora de la cancha; congelamos el reloj para evitar carreras."""
+    hoy = date(2026, 11, 17)
+    monkeypatch.setattr(
+        "dominio.disponibilidad.ahora_cancha",
+        lambda: datetime(2026, 11, 17, 12, 0),
+    )
     _horario(cancha, hoy.weekday(), time(0, 0), time(0, 1))   # ya vencido
     _horario(cancha, hoy.weekday(), time(23, 58), time(23, 59))  # todavía por empezar
     db.session.commit()
