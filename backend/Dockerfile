@@ -1,4 +1,4 @@
-kmkjmxj sik mhigiuhuihi8y0h8efih# GoalTime API en contenedor (spec.md 7.3).
+# GoalTime API en contenedor (spec.md 7.3).
 #
 # 3.12 y no la 3.14 del venv local: es la versión con ruedas disponibles para todos los
 # paquetes pinneados, y una imagen que se construye siempre vale más que una que depende
@@ -35,11 +35,7 @@ EXPOSE 5000
 # `flask seed` (usuarios, canchas y horarios de prueba) no está en la línea de arranque a
 # propósito: una instalación real no siembra cuentas de demostración.
 #
-# `--timeout 120` no es un número inventado. Verificar una contraseña con scrypt cuesta
-# alrededor de un segundo de CPU; en una máquina de dos núcleos con carga, un login tardó
-# medido 18 segundos. Con el valor por defecto de 30, gunicorn.mató al worker con SIGKILL
-# ("WORKER TIMEOUT") mientras respondía, y quien estaba esperando se quedó sin respuesta y
-# sin worker. El timeout tiene que ser holgado para una petición legítima y corta frente a
-# una petición colgada, que es justo para lo que existe: los 120 s son el techo, no el normal.
-# `--worker-tmp-dir /dev/shm` evita que gunicorn use el disco para el heartbeat de los workers.
-CMD ["sh", "-c", "alembic upgrade head && flask seed-catalogo && gunicorn --bind 0.0.0.0:5000 --workers 2 --timeout 120 --worker-tmp-dir /dev/shm --access-logfile - app:app"]
+# Primero se valida la configuración, después se migran tablas y se siembran
+# exclusivamente los catálogos. Gunicorn escucha en el PORT inyectado por Railway
+# mediante gunicorn.conf.py, no en un puerto fijo de la máquina de desarrollo.
+CMD ["sh", "-c", "python validar_config.py && alembic upgrade head && flask --app app seed-catalogo && exec gunicorn --config gunicorn.conf.py app:app"]

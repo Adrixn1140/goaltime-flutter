@@ -17,6 +17,16 @@ from models import Cliente
 RAIZ = Path(__file__).resolve().parents[2]
 
 
+def test_dockerfile_valido_y_arranque_para_railway():
+    dockerfile = (RAIZ / "backend/Dockerfile").read_text(encoding="utf-8")
+    instrucciones = [linea for linea in dockerfile.splitlines() if linea.strip() and not linea.lstrip().startswith("#")]
+    assert instrucciones[0] == "FROM python:3.12-slim"
+    assert "python validar_config.py && alembic upgrade head" in dockerfile
+    assert "flask --app app seed-catalogo" in dockerfile
+    assert "exec gunicorn --config gunicorn.conf.py app:app" in dockerfile
+    assert "--bind 0.0.0.0:5000" not in dockerfile
+
+
 def _config():
     return {"GOALTIME_ENV": "production", "DEBUG": False, "TESTING": False,
             "JWT_SECRET_KEY": "a" * 64,
